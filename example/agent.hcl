@@ -3,7 +3,7 @@
 
 log_level = "TRACE"
 
-plugin "hello-driver" {
+plugin "milo-driver" {
   config {
     shell = "bash"
   }

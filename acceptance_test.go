@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/nomad/plugins/drivers"
 	"github.com/hashicorp/nomad/plugins/shared/hclspec"
 
-	"github.com/andrewesweet/nomad-driver-milo/hello"
+	"github.com/andrewesweet/nomad-driver-milo/milo"
 )
 
 // AcceptanceTestContext holds the context for acceptance tests
@@ -23,10 +23,10 @@ type AcceptanceTestContext struct {
 	err        error
 }
 
-// iHaveAHelloWorldDriverPlugin creates a new plugin instance for testing
-func (ctx *AcceptanceTestContext) iHaveAHelloWorldDriverPlugin() error {
+// iHaveAMiloWorldDriverPlugin creates a new plugin instance for testing
+func (ctx *AcceptanceTestContext) iHaveAMiloWorldDriverPlugin() error {
 	logger := hclog.NewNullLogger()
-	ctx.plugin = hello.NewPlugin(logger)
+	ctx.plugin = milo.NewPlugin(logger)
 	if ctx.plugin == nil {
 		return errors.New("failed to create plugin instance")
 	}
@@ -203,7 +203,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 		return ctx, nil
 	})
 	
-	ctx.Step(`^I have a hello world driver plugin$`, testCtx.iHaveAHelloWorldDriverPlugin)
+	ctx.Step(`^I have a milo world driver plugin$`, testCtx.iHaveAMiloWorldDriverPlugin)
 	ctx.Step(`^I create a new plugin instance$`, testCtx.iCreateANewPluginInstance)
 	ctx.Step(`^the plugin should be properly initialized$`, testCtx.thePluginShouldBeProperlyInitialized)
 	ctx.Step(`^I request plugin information$`, testCtx.iRequestPluginInformation)
