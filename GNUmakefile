@@ -5,7 +5,7 @@ export GO111MODULE=on
 
 default: build
 
-.PHONY: clean test test-unit test-acceptance test-e2e test-all build help
+.PHONY: clean test test-unit test-acceptance test-live-e2e test-all build help
 
 help: ## Display this help message
 	@echo "Available targets:"
@@ -17,7 +17,7 @@ clean: ## Remove build artifacts
 
 test: test-unit test-acceptance ## Run core tests (unit and acceptance)
 
-test-all: test-unit test-acceptance test-e2e ## Run all tests including e2e
+test-all: test-unit test-acceptance test-live-e2e ## Run all tests including live e2e
 
 test-unit: ## Run unit tests
 	go test -v ./...
@@ -25,9 +25,9 @@ test-unit: ## Run unit tests
 test-acceptance: ## Run acceptance tests using godog
 	go test -v -tags=acceptance .
 
-test-e2e: build ## Run end-to-end tests
-	@echo "==> Running e2e tests"
-	go test -v -tags=e2e ./e2e/...
+test-live-e2e: build ## Run live integration e2e tests
+	@echo "==> Running live e2e tests (requires nomad binary)"
+	go test -v -tags=live_e2e ./e2e/live/...
 
 .PHONY: fmt
 fmt: ## Format Go code
@@ -41,8 +41,8 @@ vet: ## Run go vet
 lint: ## Run golangci-lint
 	golangci-lint run
 
-.PHONY: fullbuild
-fullbuild: clean fmt vet lint test build ## Run complete build process
+.PHONY: full
+full: clean fmt vet lint build test-all ## Run complete build process
 
 build: test ## Build the plugin binary (runs tests first)
 	@echo "==> Building ${PLUGIN_NAME} plugin"

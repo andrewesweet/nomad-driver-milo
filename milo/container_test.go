@@ -2,6 +2,8 @@ package milo
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateCrunCommand(t *testing.T) {
@@ -33,24 +35,14 @@ func TestCreateOCISpec(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	if spec == nil {
-		t.Fatal("Expected spec to not be nil")
-	}
-
-	// Verify process configuration
-	if spec.Process == nil {
-		t.Fatal("Expected process to not be nil")
-	}
-
-	if len(spec.Process.Args) == 0 {
-		t.Fatal("Expected process args to not be empty")
-	}
+	// Verify spec and process configuration
+	require.NotNil(t, spec, "Expected spec to not be nil")
+	require.NotNil(t, spec.Process, "Expected process to not be nil")
+	require.NotEmpty(t, spec.Process.Args, "Expected process args to not be empty")
 
 	// Should contain java command
 	expectedArgs := []string{"java", "-jar", "/app/hello-world.jar"}
-	if len(spec.Process.Args) != len(expectedArgs) {
-		t.Fatalf("Expected %d process args, got %d", len(expectedArgs), len(spec.Process.Args))
-	}
+	require.Equal(t, len(expectedArgs), len(spec.Process.Args), "Expected correct number of process args")
 
 	for i, arg := range expectedArgs {
 		if spec.Process.Args[i] != arg {
@@ -79,24 +71,24 @@ func TestCreateOCISpec(t *testing.T) {
 	if !foundJavaMount {
 		t.Error("Expected Java runtime mount not found")
 	}
-	
+
 	// Verify Linux namespace configuration for crun
 	if spec.Linux == nil {
 		t.Fatal("Expected Linux configuration to be present for crun compatibility")
 	}
-	
+
 	// Verify required namespaces are present
 	expectedNamespaces := []string{"pid", "ipc", "uts", "mount"}
 	if len(spec.Linux.Namespaces) != len(expectedNamespaces) {
 		t.Errorf("Expected %d namespaces, got %d", len(expectedNamespaces), len(spec.Linux.Namespaces))
 	}
-	
+
 	// Check each namespace type
 	namespaceMap := make(map[string]bool)
 	for _, ns := range spec.Linux.Namespaces {
 		namespaceMap[string(ns.Type)] = true
 	}
-	
+
 	for _, expectedNS := range expectedNamespaces {
 		if !namespaceMap[expectedNS] {
 			t.Errorf("Expected namespace %q not found", expectedNS)

@@ -23,13 +23,13 @@ func ValidateArtifactExtension(artifactPath string) error {
 // FindArtifactInTaskDir finds the first .jar file in the task's local directory
 func FindArtifactInTaskDir(taskDirPath string) (string, error) {
 	localDir := filepath.Join(taskDirPath, "local")
-	
+
 	// Read the local directory to find JAR files
 	entries, err := os.ReadDir(localDir)
 	if err != nil {
 		return "", fmt.Errorf("failed to read local directory: %v", err)
 	}
-	
+
 	// Find the first JAR file
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -39,7 +39,7 @@ func FindArtifactInTaskDir(taskDirPath string) (string, error) {
 			return filepath.Join(localDir, entry.Name()), nil
 		}
 	}
-	
+
 	return "", fmt.Errorf("no JAR file found in task directory")
 }
 

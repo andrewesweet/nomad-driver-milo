@@ -27,7 +27,7 @@ const (
 	// pluginName is the name of the plugin
 	// this is used for logging and (along with the version) for uniquely
 	// identifying plugin binaries fingerprinted by the client
-	pluginName = "milo-world-example"
+	pluginName = "milo"
 
 	// pluginVersion allows the client to identify and use newer versions of
 	// an installed plugin
@@ -82,26 +82,10 @@ var (
 	// this is used to validated the configuration specified for the plugin
 	// when a job is submitted.
 	taskConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
-		// TODO: define plugin's task configuration schema
-		//
-		// The schema should be defined using HCL specs and it will be used to
-		// validate the task configuration provided by the user when they
-		// submit a job.
-		//
-		// For example, for the schema below a valid task would be:
-		//   job "example" {
-		//     group "example" {
-		//       task "say-hi" {
-		//         driver = "hello-driver-plugin"
-		//         config {
-		//           greeting = "Hi"
-		//         }
-		//       }
-		//     }
-		//   }
-		"greeting": hclspec.NewDefault(
-			hclspec.NewAttr("greeting", "string", false),
-			hclspec.NewLiteral(`"Hello, World!"`),
+		// Minimal dummy config to make validation pass
+		"dummy": hclspec.NewDefault(
+			hclspec.NewAttr("dummy", "string", false),
+			hclspec.NewLiteral(`""`),
 		),
 	})
 
@@ -131,12 +115,8 @@ type Config struct {
 // TaskConfig contains configuration information for a task that runs with
 // this plugin
 type TaskConfig struct {
-	// TODO: create decoded plugin task configuration struct
-	//
-	// This struct is the decoded version of the schema defined in the
-	// taskConfigSpec variable above. It's used to convert the string
-	// configuration for the task into Go contructs.
-	Greeting string `codec:"greeting"`
+	// Dummy field to match the taskConfigSpec
+	Dummy string `codec:"dummy"`
 }
 
 // TaskState is the runtime state which is encoded in the handle returned to

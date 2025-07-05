@@ -138,16 +138,9 @@ func (ctx *AcceptanceTestContext) iShouldReceiveAValidConfigurationSchema() erro
 
 // theSchemaShouldContainConfiguration verifies the schema contains expected configuration
 func (ctx *AcceptanceTestContext) theSchemaShouldContainConfiguration(configName string) error {
-	// Check if we're testing the task configuration schema
-	if configName == "greeting" {
-		if ctx.taskSpec == nil {
-			return errors.New("task configuration schema is nil")
-		}
-	} else {
-		// Check the regular configuration schema
-		if ctx.configSpec == nil {
-			return errors.New("configuration schema is nil")
-		}
+	// Check the regular configuration schema
+	if ctx.configSpec == nil {
+		return errors.New("configuration schema is nil")
 	}
 
 	// This is a simplified check - in a real test you might want to parse the schema

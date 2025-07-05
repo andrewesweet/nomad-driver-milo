@@ -37,6 +37,23 @@ func CreateOCISpec(javaHome, jarPath, taskDir string) (*specs.Spec, error) {
 		},
 		Mounts: []specs.Mount{
 			{
+				Destination: "/proc",
+				Type:        "proc",
+				Source:      "proc",
+			},
+			{
+				Destination: "/dev",
+				Type:        "tmpfs",
+				Source:      "tmpfs",
+				Options:     []string{"nosuid", "strictatime", "mode=755", "size=65536k"},
+			},
+			{
+				Destination: "/sys",
+				Type:        "sysfs",
+				Source:      "sysfs",
+				Options:     []string{"nosuid", "noexec", "nodev", "ro"},
+			},
+			{
 				Destination: "/usr/lib/jvm/java",
 				Source:      javaHome,
 				Type:        "bind",
@@ -61,10 +78,21 @@ func CreateContainerBundle(bundlePath string, spec *specs.Spec) error {
 		return err
 	}
 
-	// Create the rootfs directory
+	// Create the rootfs directory and basic filesystem structure
 	rootfsPath := filepath.Join(bundlePath, "rootfs")
 	if err := os.MkdirAll(rootfsPath, 0755); err != nil {
 		return err
+	}
+
+	// Create essential directories in rootfs
+	essentialDirs := []string{
+		"bin", "usr/bin", "usr/lib", "usr/lib/jvm", "app", "tmp", "var", "etc",
+	}
+	for _, dir := range essentialDirs {
+		dirPath := filepath.Join(rootfsPath, dir)
+		if err := os.MkdirAll(dirPath, 0755); err != nil {
+			return err
+		}
 	}
 
 	// Write the OCI spec as config.json

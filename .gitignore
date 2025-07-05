@@ -1,2 +1,15 @@
 nomad-skeleton-driver-plugin
 hello-driver
+
+# Test binaries
+*.test
+
+# IDE files
+.idea/
+*.iml
+
+# Compiled Java classes
+*.class
+
+# Temporary test files
+test-*.nomad

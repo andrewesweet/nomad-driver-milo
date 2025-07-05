@@ -255,11 +255,11 @@ func theContainerOCISpecShouldIncludeLinuxNamespaces() error {
 	if err != nil {
 		return fmt.Errorf("failed to create OCI spec: %v", err)
 	}
-	
+
 	if spec.Linux == nil {
 		return fmt.Errorf("OCI spec missing Linux configuration block")
 	}
-	
+
 	return nil
 }
 

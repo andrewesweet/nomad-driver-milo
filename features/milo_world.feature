@@ -12,7 +12,7 @@ Feature: Milo World Driver
     Given I have a milo world driver plugin
     When I request plugin information
     Then I should receive valid plugin information
-    And the plugin name should be "milo-world-example"
+    And the plugin name should be "milo"
     And the plugin version should be "v0.1.0"
 
   Scenario: Configuration schema
@@ -25,4 +25,3 @@ Feature: Milo World Driver
     Given I have a milo world driver plugin
     When I request the task configuration schema
     Then I should receive a valid task configuration schema
-    And the schema should contain "greeting" configuration
