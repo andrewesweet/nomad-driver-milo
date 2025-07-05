@@ -30,3 +30,29 @@ Feature: Milo Java JAR Task Driver
       """
     And the task events should include "Task failed to start"
     And no crun container should have been created
+
+  Scenario: Missing artifact file
+    Given a host with Java runtime installed at "/usr/lib/jvm/java-17"
+    And no file exists at "/tmp/missing.jar"
+    And a Nomad job file "missing-test.nomad" contains:
+      """
+      job "missing-test" {
+        type = "batch"
+        group "app" {
+          task "java-app" {
+            driver = "milo"
+            artifact {
+              source = "file:///tmp/missing.jar"
+            }
+          }
+        }
+      }
+      """
+    When the user executes: "nomad job run missing-test.nomad"
+    And waits for task completion
+    Then the job status should show "dead (failed)"
+    And running "nomad logs missing-test java-app" should contain:
+      """
+      Error: Failed to download artifact: file not found
+      """
+    And no crun container should have been created

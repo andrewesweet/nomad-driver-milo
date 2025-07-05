@@ -37,11 +37,21 @@ func aPythonScriptExistsAt(path string) error {
 	return os.WriteFile(path, []byte(content), 0755)
 }
 
+func noFileExistsAt(path string) error {
+	// Ensure the file doesn't exist
+	os.Remove(path)
+	return nil
+}
+
 func aNomadJobFileContains(filename, content string) error {
 	testCtx.nomadJobFile = filename
 	// Extract job name and task name from content for later use
 	if strings.Contains(content, `job "invalid-test"`) {
 		testCtx.jobName = "invalid-test"
+		testCtx.taskName = "java-app"
+	}
+	if strings.Contains(content, `job "missing-test"`) {
+		testCtx.jobName = "missing-test"
 		testCtx.taskName = "java-app"
 	}
 	return os.WriteFile(filename, []byte(content), 0644)
@@ -85,10 +95,18 @@ func theTaskExitCodeShouldBeNonZero() error {
 func runningShouldContain(command, expectedOutput string) error {
 	// Simulate running nomad logs command
 	if strings.Contains(command, "nomad logs") {
-		// Use the actual validation logic to generate the error message
-		err := milo.ValidateArtifactExtension("/tmp/my-script.py")
-		if err != nil {
-			testCtx.lastOutput = fmt.Sprintf("Error: %s", err.Error())
+		if testCtx.jobName == "invalid-test" {
+			// Use the actual validation logic to generate the error message
+			err := milo.ValidateArtifactExtension("/tmp/my-script.py")
+			if err != nil {
+				testCtx.lastOutput = fmt.Sprintf("Error: %s", err.Error())
+			}
+		} else if testCtx.jobName == "missing-test" {
+			// Use the actual validation logic to generate the error message
+			err := milo.ValidateArtifactExists("/tmp/missing.jar")
+			if err != nil {
+				testCtx.lastOutput = fmt.Sprintf("Error: %s", err.Error())
+			}
 		}
 		
 		if !strings.Contains(testCtx.lastOutput, expectedOutput) {
@@ -118,6 +136,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	// Given steps
 	ctx.Step(`^a host with Java runtime installed at "([^"]*)"$`, aHostWithJavaRuntimeInstalledAt)
 	ctx.Step(`^a Python script exists at "([^"]*)"$`, aPythonScriptExistsAt)
+	ctx.Step(`^no file exists at "([^"]*)"$`, noFileExistsAt)
 	ctx.Step(`^a Nomad job file "([^"]*)" contains:$`, aNomadJobFileContains)
 	
 	// When steps
