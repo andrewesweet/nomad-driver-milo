@@ -354,6 +354,59 @@ func (d *MiloDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHand
 	handle := drivers.NewTaskHandle(taskHandleVersion)
 	handle.Config = cfg
 
+	// Validate artifacts before starting the task
+	artifactPath, err := FindArtifactInTaskDir(cfg.TaskDir().Dir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find artifact: %v", err)
+	}
+
+	// Check if artifact file exists
+	if err := ValidateArtifactExists(artifactPath); err != nil {
+		return nil, nil, fmt.Errorf("artifact validation failed: %v", err)
+	}
+
+	// Check if artifact has correct extension
+	if err := ValidateArtifactExtension(artifactPath); err != nil {
+		return nil, nil, fmt.Errorf("artifact validation failed: %v", err)
+	}
+
+	// Detect Java runtime on the host
+	commonJavaPaths := []string{
+		"/usr/lib/jvm/java-21-openjdk-amd64",
+		"/usr/lib/jvm/java-17-openjdk-amd64",
+		"/usr/lib/jvm/java-11-openjdk-amd64",
+		"/usr/lib/jvm/java-17",
+		"/usr/lib/jvm/java-11",
+		"/usr/lib/jvm/java-8",
+		"/opt/java",
+		"/usr/java",
+	}
+	javaHome, err := DetectJavaRuntime(commonJavaPaths)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Java runtime detection failed: %v", err)
+	}
+
+	d.logger.Info("detected Java runtime", "java_home", javaHome)
+
+	// Create container bundle for crun execution
+	bundlePath := filepath.Join(cfg.TaskDir().Dir, "container-bundle")
+	containerID := fmt.Sprintf("milo-task-%s", cfg.ID)
+
+	// Create OCI specification for the JAR execution
+	spec, err := CreateOCISpec(javaHome, "/app/artifact.jar", cfg.TaskDir().Dir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create OCI spec: %v", err)
+	}
+
+	// Create the container bundle
+	if err := CreateContainerBundle(bundlePath, spec); err != nil {
+		return nil, nil, fmt.Errorf("failed to create container bundle: %v", err)
+	}
+
+	// Generate crun command
+	crunCmd := GenerateCrunCommand(bundlePath, containerID)
+	d.logger.Info("executing JAR with crun", "command", crunCmd)
+
 	// TODO: implement driver specific mechanism to start the task.
 	//
 	// Once the task is started you will need to store any relevant runtime
@@ -380,10 +433,10 @@ func (d *MiloDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHand
 		return nil, nil, fmt.Errorf("failed to create executor: %v", err)
 	}
 
-	echoCmd := fmt.Sprintf(`echo "%s"`, driverConfig.Greeting)
+	// Use crun command instead of shell echo
 	execCmd := &executor.ExecCommand{
-		Cmd:        d.config.Shell,
-		Args:       []string{"-c", echoCmd},
+		Cmd:        crunCmd[0],  // "crun"
+		Args:       crunCmd[1:], // ["run", "--bundle", bundlePath, containerID]
 		StdoutPath: cfg.StdoutPath,
 		StderrPath: cfg.StderrPath,
 	}

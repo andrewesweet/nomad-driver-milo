@@ -26,6 +26,11 @@ Target: 2-3 days maximum
 - [ ] Error scenarios fail gracefully with clear messages
 - [ ] Integration with standard Nomad workflows (CLI, UI, API)
 
+## Testing Approach
+- **Unit Tests**: Using Go's built-in `testing` package
+- **Acceptance Tests**: Using Godog for BDD/Gherkin scenarios
+- **Methodology**: Strict TDD/ATDD - no production code without failing test
+
 ## Related Issues
 - #[issue-number] - Core JAR execution functionality
 - #[issue-number] - Artifact validation
@@ -513,3 +518,136 @@ When creating these in GitHub, use this structure:
 
 **Description:** [Copy relevant section from above]
 ```
+
+---
+
+## ATDD Implementation Plan
+
+### Overview
+This spike will be implemented using strict Acceptance Test-Driven Development (ATDD) methodology. Each feature will be built incrementally, starting with acceptance tests (using Godog) and breaking them down into unit tests (using Go test).
+
+### Implementation Order (Simplest to Most Complex)
+
+#### 1. Invalid Artifact Extension Validation
+**Why first**: Simplest validation logic, no container runtime or Java detection needed
+
+**Acceptance Test**: "Invalid Extension Scenario" (lines 206-236)
+
+**Unit Tests Required**:
+1. `TestTaskConfig_ExtractArtifactSource` - Parse artifact source from task config
+2. `TestValidateArtifactExtension_RejectsNonJar` - Validate .jar extension requirement
+3. `TestFormatInvalidExtensionError` - Generate user-friendly error message
+
+**Implementation Steps**:
+- RED: Write failing acceptance test in Godog
+- For each unit test:
+  - RED: Write failing unit test
+  - GREEN: Write minimal code to pass
+  - REFACTOR: Clean up code structure
+- Verify acceptance test passes
+
+#### 2. Missing Artifact File Validation
+**Why second**: Builds on artifact validation, still no container needed
+
+**Acceptance Test**: "Missing File Scenario" (lines 238-266)
+
+**Unit Tests Required**:
+1. `TestCheckArtifactExists` - Verify file existence after download
+2. `TestHandleMissingArtifactError` - Error handling for missing files
+3. `TestFormatMissingFileError` - Generate clear error message
+
+#### 3. Missing Java Runtime Detection
+**Why third**: Introduces Java detection without container complexity
+
+**Acceptance Test**: "Missing Java Runtime Scenario" (lines 296-324)
+
+**Unit Tests Required**:
+1. `TestScanJavaInstallationPaths` - Check /usr/lib/jvm/*, /opt/java
+2. `TestCheckJavaHomeEnvironment` - Read JAVA_HOME variable
+3. `TestValidateJavaExecutable` - Verify java binary exists and is executable
+4. `TestFormatMissingJavaError` - Generate helpful error message
+
+#### 4. Basic JAR Execution
+**Why fourth**: Core functionality with container runtime
+
+**Acceptance Test**: "Successful JAR Execution" (lines 60-94)
+
+**Unit Tests Required**:
+1. `TestGenerateCrunCommand` - Build crun execution command
+2. `TestCreateContainerSpec` - Generate OCI container specification
+3. `TestMountJavaRuntime` - Configure Java runtime mount
+4. `TestMountTaskDirectory` - Configure task directory mount
+5. `TestCaptureContainerOutput` - Redirect stdout/stderr
+6. `TestWaitForContainerExit` - Monitor container completion
+7. `TestCleanupContainer` - Remove container after exit
+
+#### 5. Exit Code Propagation
+**Why fifth**: Extends basic execution with error handling
+
+**Acceptance Test**: "Exit Code Propagation Scenario" (lines 327-357)
+
+**Unit Tests Required**:
+1. `TestCaptureNonZeroExitCode` - Handle container exit codes
+2. `TestUpdateTaskStateOnFailure` - Update Nomad task state
+3. `TestGenerateFailureEvent` - Create appropriate Nomad events
+
+#### 6. Real-time Log Streaming
+**Why last**: Most complex, requires concurrent I/O handling
+
+**Acceptance Test**: "Real-time Streaming Scenario" (lines 129-169)
+
+**Unit Tests Required**:
+1. `TestInitializeLogBuffers` - Set up concurrent-safe buffers
+2. `TestStreamContainerLogs` - Real-time log capture
+3. `TestHandleLogStreamTermination` - Clean shutdown of streams
+4. `TestIntegrateWithNomadLogger` - Connect to Nomad's log subsystem
+
+### TDD Cycle Discipline
+
+For each test cycle:
+1. **RED Phase** (max 2 minutes)
+   - Write failing test
+   - Run test to confirm failure
+   - Commit: "Test: Add failing test for [feature]"
+
+2. **GREEN Phase** (max 2 minutes)
+   - Write minimal code to pass
+   - Run all tests
+   - Commit: "Behavioral: Implement [feature]"
+
+3. **REFACTOR Phase** (max 1 minute)
+   - Improve code structure
+   - Run all tests
+   - Commit: "Structural: Refactor [component]"
+
+### File Structure
+
+```
+nomad-driver-milo/
+├── milo/
+│   ├── driver.go          # Main driver implementation
+│   ├── driver_test.go     # Driver unit tests
+│   ├── config.go          # Configuration structures
+│   ├── config_test.go     # Configuration tests
+│   ├── artifact.go        # Artifact validation
+│   ├── artifact_test.go   # Artifact tests
+│   ├── java.go            # Java runtime detection
+│   ├── java_test.go       # Java detection tests
+│   ├── crun.go            # Container runtime integration
+│   └── crun_test.go       # Container tests
+├── features/
+│   ├── milo_jar_execution.feature  # Acceptance tests
+│   └── step_definitions_test.go    # Godog step implementations
+└── test-artifacts/
+    ├── hello-world.jar    # Test JAR files
+    ├── long-running.jar
+    └── exit-code-test.jar
+```
+
+### Success Metrics
+
+- 100% test coverage for new code
+- All acceptance tests passing
+- No production code without failing test first
+- Clear separation of behavioral and structural changes
+- Average cycle time under 5 minutes

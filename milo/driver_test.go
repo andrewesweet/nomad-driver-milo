@@ -1,6 +1,8 @@
 package milo
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
@@ -88,4 +90,35 @@ func TestSetConfig(t *testing.T) {
 	}
 	err = plugin.SetConfig(cfg2)
 	assert.NoError(t, err)
+}
+
+// === CYCLE 4: Test validation pipeline functions ===
+// Phase: RED
+func TestValidateTaskArtifacts(t *testing.T) {
+	// Given a task directory with a JAR file
+	taskDirPath := "/tmp/test-task-validate"
+	localDir := filepath.Join(taskDirPath, "local")
+	jarPath := filepath.Join(localDir, "test-app.jar")
+
+	// Create the directory structure
+	err := os.MkdirAll(localDir, 0755)
+	require.NoError(t, err)
+	defer os.RemoveAll(taskDirPath)
+
+	// Create a test JAR file
+	content := "PK\x03\x04" // JAR file magic bytes
+	err = os.WriteFile(jarPath, []byte(content), 0600)
+	require.NoError(t, err)
+
+	// When we validate artifacts in the pipeline
+	artifactPath, err := FindArtifactInTaskDir(taskDirPath)
+	require.NoError(t, err)
+
+	// The JAR file should be found and validation should pass
+	err = ValidateArtifactExtension(artifactPath)
+	require.NoError(t, err, "JAR file should be valid")
+
+	// But if we manually test a non-jar file
+	err = ValidateArtifactExtension("/tmp/script.py")
+	assert.Error(t, err, "non-jar files should fail validation")
 }

@@ -82,3 +82,58 @@ Feature: Milo Java JAR Task Driver
       Error: No Java runtime found on host. Please install Java to use Milo driver.
       """
     And no crun container should have been created
+
+  Scenario: Successful JAR execution
+    Given a host with Java runtime installed at "/usr/lib/jvm/java-17"
+    And a test JAR file exists at "/tmp/hello-world.jar"
+    And the JAR when executed prints exactly:
+      """
+      Hello from Java!
+      Milo driver test complete
+      """
+    And the JAR exits with code 0
+    And a Nomad job file "success-test.nomad" contains:
+      """
+      job "hello-world-test" {
+        type = "batch"
+        group "app" {
+          task "java-app" {
+            driver = "milo"
+            artifact {
+              source = "file:///tmp/hello-world.jar"
+            }
+          }
+        }
+      }
+      """
+    When the user executes: "nomad job run success-test.nomad"
+    And waits for task completion
+    Then the job status should show "dead (success)"
+    And the task exit code should be 0
+    And running "nomad logs hello-world-test java-app" should output exactly:
+      """
+      Hello from Java!
+      Milo driver test complete
+      """
+    And the task events should include "Task completed successfully"
+    
+  Scenario: Container spec validation for crun
+    Given a host with Java runtime installed at "/usr/lib/jvm/java-21-openjdk-amd64"
+    And a test JAR file exists at "/tmp/hello-world.jar"
+    And a Nomad job file "container-test.nomad" contains:
+      """
+      job "container-test" {
+        type = "batch"
+        group "app" {
+          task "java-app" {
+            driver = "milo"
+            artifact {
+              source = "file:///tmp/hello-world.jar"
+            }
+          }
+        }
+      }
+      """
+    When the user executes: "nomad job run container-test.nomad"
+    Then the container OCI spec should include Linux namespaces
+    And the container should start without crun configuration errors
