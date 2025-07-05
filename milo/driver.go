@@ -329,7 +329,7 @@ func (d *MiloDriverPlugin) buildFingerprint() *drivers.Fingerprint {
 	if out, err := cmd.Output(); err != nil {
 		d.logger.Warn("failed to find shell version: %v", err)
 	} else {
-		re := regexp.MustCompile("[0-9]\\.[0-9]\\.[0-9]")
+		re := regexp.MustCompile(`[0-9]\.[0-9]\.[0-9]`)
 		version := re.FindString(string(out))
 
 		fp.Attributes["driver.milo.shell_version"] = structs.NewStringAttribute(version)

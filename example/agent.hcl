@@ -3,7 +3,7 @@
 
 log_level = "TRACE"
 
-plugin "milo-driver" {
+plugin "nomad-driver-milo" {
   config {
     shell = "bash"
   }

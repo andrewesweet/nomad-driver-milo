@@ -6,8 +6,8 @@ job "example" {
   type        = "batch"
 
   group "example" {
-    task "milo-world" {
-      driver = "milo-world-example"
+    task "hello-world" {
+      driver = "nomad-driver-milo"
 
       config {
         greeting = "hello"

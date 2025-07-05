@@ -46,13 +46,9 @@ func (ctx *AcceptanceTestContext) thePluginShouldBeProperlyInitialized() error {
 	if ctx.plugin == nil {
 		return errors.New("plugin is not initialized")
 	}
-	
-	// Verify the plugin implements the DriverPlugin interface
-	_, ok := ctx.plugin.(drivers.DriverPlugin)
-	if !ok {
-		return errors.New("plugin does not implement DriverPlugin interface")
-	}
-	
+
+	// Plugin is already of type drivers.DriverPlugin, no need to assert
+
 	return nil
 }
 
@@ -61,13 +57,13 @@ func (ctx *AcceptanceTestContext) iRequestPluginInformation() error {
 	if ctx.plugin == nil {
 		return errors.New("plugin is not initialized")
 	}
-	
+
 	info, err := ctx.plugin.PluginInfo()
 	if err != nil {
 		ctx.err = err
 		return err
 	}
-	
+
 	ctx.pluginInfo = info
 	return nil
 }
@@ -77,15 +73,15 @@ func (ctx *AcceptanceTestContext) iShouldReceiveValidPluginInformation() error {
 	if ctx.pluginInfo == nil {
 		return errors.New("plugin information is nil")
 	}
-	
+
 	if ctx.pluginInfo.Type != base.PluginTypeDriver {
 		return errors.New("plugin type is not driver")
 	}
-	
+
 	if len(ctx.pluginInfo.PluginApiVersions) == 0 {
 		return errors.New("no plugin API versions specified")
 	}
-	
+
 	return nil
 }
 
@@ -94,11 +90,11 @@ func (ctx *AcceptanceTestContext) thePluginNameShouldBe(expectedName string) err
 	if ctx.pluginInfo == nil {
 		return errors.New("plugin information is nil")
 	}
-	
+
 	if ctx.pluginInfo.Name != expectedName {
 		return errors.New("plugin name does not match expected value")
 	}
-	
+
 	return nil
 }
 
@@ -107,11 +103,11 @@ func (ctx *AcceptanceTestContext) thePluginVersionShouldBe(expectedVersion strin
 	if ctx.pluginInfo == nil {
 		return errors.New("plugin information is nil")
 	}
-	
+
 	if ctx.pluginInfo.PluginVersion != expectedVersion {
 		return errors.New("plugin version does not match expected value")
 	}
-	
+
 	return nil
 }
 
@@ -120,13 +116,13 @@ func (ctx *AcceptanceTestContext) iRequestTheConfigurationSchema() error {
 	if ctx.plugin == nil {
 		return errors.New("plugin is not initialized")
 	}
-	
+
 	schema, err := ctx.plugin.ConfigSchema()
 	if err != nil {
 		ctx.err = err
 		return err
 	}
-	
+
 	ctx.configSpec = schema
 	return nil
 }
@@ -136,7 +132,7 @@ func (ctx *AcceptanceTestContext) iShouldReceiveAValidConfigurationSchema() erro
 	if ctx.configSpec == nil {
 		return errors.New("configuration schema is nil")
 	}
-	
+
 	return nil
 }
 
@@ -153,7 +149,7 @@ func (ctx *AcceptanceTestContext) theSchemaShouldContainConfiguration(configName
 			return errors.New("configuration schema is nil")
 		}
 	}
-	
+
 	// This is a simplified check - in a real test you might want to parse the schema
 	// to verify it contains the expected configuration key
 	return nil
@@ -164,13 +160,13 @@ func (ctx *AcceptanceTestContext) iRequestTheTaskConfigurationSchema() error {
 	if ctx.plugin == nil {
 		return errors.New("plugin is not initialized")
 	}
-	
+
 	schema, err := ctx.plugin.TaskConfigSchema()
 	if err != nil {
 		ctx.err = err
 		return err
 	}
-	
+
 	ctx.taskSpec = schema
 	return nil
 }
@@ -180,7 +176,7 @@ func (ctx *AcceptanceTestContext) iShouldReceiveAValidTaskConfigurationSchema() 
 	if ctx.taskSpec == nil {
 		return errors.New("task configuration schema is nil")
 	}
-	
+
 	return nil
 }
 
@@ -192,7 +188,7 @@ func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 // InitializeScenario initializes each scenario
 func InitializeScenario(ctx *godog.ScenarioContext) {
 	testCtx := &AcceptanceTestContext{}
-	
+
 	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
 		// Reset the context for each scenario
 		testCtx.plugin = nil
@@ -202,7 +198,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 		testCtx.err = nil
 		return ctx, nil
 	})
-	
+
 	ctx.Step(`^I have a milo world driver plugin$`, testCtx.iHaveAMiloWorldDriverPlugin)
 	ctx.Step(`^I create a new plugin instance$`, testCtx.iCreateANewPluginInstance)
 	ctx.Step(`^the plugin should be properly initialized$`, testCtx.thePluginShouldBeProperlyInitialized)
