@@ -56,3 +56,29 @@ Feature: Milo Java JAR Task Driver
       Error: Failed to download artifact: file not found
       """
     And no crun container should have been created
+
+  Scenario: Missing Java runtime
+    Given a host with no Java runtime installed
+    And a test JAR file exists at "/tmp/hello-world.jar"
+    And a Nomad job file "no-java-test.nomad" contains:
+      """
+      job "no-java-test" {
+        type = "batch"
+        group "app" {
+          task "java-app" {
+            driver = "milo"
+            artifact {
+              source = "file:///tmp/hello-world.jar"
+            }
+          }
+        }
+      }
+      """
+    When the user executes: "nomad job run no-java-test.nomad"
+    And waits for task completion
+    Then the job status should show "dead (failed)"
+    And running "nomad logs no-java-test java-app" should contain:
+      """
+      Error: No Java runtime found on host. Please install Java to use Milo driver.
+      """
+    And no crun container should have been created

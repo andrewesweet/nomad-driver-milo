@@ -31,6 +31,18 @@ func aHostWithJavaRuntimeInstalledAt(path string) error {
 	return nil
 }
 
+func aHostWithNoJavaRuntimeInstalled() error {
+	testCtx.javaPath = ""
+	// Indicate no Java runtime is available
+	return nil
+}
+
+func aTestJARFileExistsAt(path string) error {
+	// Create a dummy JAR file for testing
+	content := "PK\x03\x04" // JAR file magic bytes
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
 func aPythonScriptExistsAt(path string) error {
 	// Create a dummy Python script for testing
 	content := "#!/usr/bin/env python3\nprint('This is a Python script')"
@@ -52,6 +64,10 @@ func aNomadJobFileContains(filename, content string) error {
 	}
 	if strings.Contains(content, `job "missing-test"`) {
 		testCtx.jobName = "missing-test"
+		testCtx.taskName = "java-app"
+	}
+	if strings.Contains(content, `job "no-java-test"`) {
+		testCtx.jobName = "no-java-test"
 		testCtx.taskName = "java-app"
 	}
 	return os.WriteFile(filename, []byte(content), 0644)
@@ -107,6 +123,12 @@ func runningShouldContain(command, expectedOutput string) error {
 			if err != nil {
 				testCtx.lastOutput = fmt.Sprintf("Error: %s", err.Error())
 			}
+		} else if testCtx.jobName == "no-java-test" {
+			// Use the actual Java detection logic to generate the error message
+			_, err := milo.DetectJavaRuntime([]string{"/nonexistent"})
+			if err != nil {
+				testCtx.lastOutput = fmt.Sprintf("Error: %s", err.Error())
+			}
 		}
 		
 		if !strings.Contains(testCtx.lastOutput, expectedOutput) {
@@ -135,6 +157,8 @@ func noCrunContainerShouldHaveBeenCreated() error {
 func InitializeScenario(ctx *godog.ScenarioContext) {
 	// Given steps
 	ctx.Step(`^a host with Java runtime installed at "([^"]*)"$`, aHostWithJavaRuntimeInstalledAt)
+	ctx.Step(`^a host with no Java runtime installed$`, aHostWithNoJavaRuntimeInstalled)
+	ctx.Step(`^a test JAR file exists at "([^"]*)"$`, aTestJARFileExistsAt)
 	ctx.Step(`^a Python script exists at "([^"]*)"$`, aPythonScriptExistsAt)
 	ctx.Step(`^no file exists at "([^"]*)"$`, noFileExistsAt)
 	ctx.Step(`^a Nomad job file "([^"]*)" contains:$`, aNomadJobFileContains)
