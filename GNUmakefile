@@ -5,7 +5,7 @@ export GO111MODULE=on
 
 default: build
 
-.PHONY: clean test test-unit test-acceptance build help
+.PHONY: clean test test-unit test-acceptance test-e2e test-all build help
 
 help: ## Display this help message
 	@echo "Available targets:"
@@ -15,13 +15,19 @@ clean: ## Remove build artifacts
 	@echo "==> Cleaning plugin from ${NOMAD_PLUGIN_DIR}"
 	rm -f ${PLUGIN_BINARY}
 
-test: test-unit test-acceptance ## Run all tests
+test: test-unit test-acceptance ## Run core tests (unit and acceptance)
+
+test-all: test-unit test-acceptance test-e2e ## Run all tests including e2e
 
 test-unit: ## Run unit tests
 	go test -v ./...
 
 test-acceptance: ## Run acceptance tests using godog
 	go test -v -tags=acceptance .
+
+test-e2e: build ## Run end-to-end tests
+	@echo "==> Running e2e tests"
+	go test -v -tags=e2e ./e2e/...
 
 .PHONY: fmt
 fmt: ## Format Go code
