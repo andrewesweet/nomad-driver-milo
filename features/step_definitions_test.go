@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/andrewesweet/nomad-driver-milo/milo"
 	"github.com/cucumber/godog"
 )
 
@@ -84,8 +85,12 @@ func theTaskExitCodeShouldBeNonZero() error {
 func runningShouldContain(command, expectedOutput string) error {
 	// Simulate running nomad logs command
 	if strings.Contains(command, "nomad logs") {
-		// The driver should output this error message
-		testCtx.lastOutput = "Error: Artifact must be a .jar file, got: my-script.py"
+		// Use the actual validation logic to generate the error message
+		err := milo.ValidateArtifactExtension("/tmp/my-script.py")
+		if err != nil {
+			testCtx.lastOutput = fmt.Sprintf("Error: %s", err.Error())
+		}
+		
 		if !strings.Contains(testCtx.lastOutput, expectedOutput) {
 			return fmt.Errorf("expected output to contain %q, got %q", expectedOutput, testCtx.lastOutput)
 		}
