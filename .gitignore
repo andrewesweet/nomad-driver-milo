@@ -12,4 +12,5 @@ hello-driver
 *.class
 
 # Temporary test files
+temp/**
 test-*.nomad

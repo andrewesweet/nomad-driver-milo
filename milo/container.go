@@ -19,8 +19,8 @@ func CreateOCISpec(javaHome, jarPath, taskDir string) (*specs.Spec, error) {
 		Version: "1.0.0",
 		Process: &specs.Process{
 			Terminal: false,
-			Args:     []string{"java", "-jar", jarPath},
-			Env:      []string{"PATH=/usr/bin:/bin", "JAVA_HOME=/usr/lib/jvm/java"},
+			Args:     []string{"/usr/lib/jvm/java/bin/java", "-jar", jarPath},
+			Env:      []string{"PATH=/usr/lib/jvm/java/bin:/usr/bin:/bin", "JAVA_HOME=/usr/lib/jvm/java"},
 			Cwd:      "/app",
 		},
 		Root: &specs.Root{
@@ -57,13 +57,31 @@ func CreateOCISpec(javaHome, jarPath, taskDir string) (*specs.Spec, error) {
 				Destination: "/usr/lib/jvm/java",
 				Source:      javaHome,
 				Type:        "bind",
-				Options:     []string{"bind", "ro"},
+				Options:     []string{"rbind", "ro"},
 			},
 			{
 				Destination: "/app",
 				Source:      taskDir,
 				Type:        "bind",
-				Options:     []string{"bind"},
+				Options:     []string{"rbind"},
+			},
+			{
+				Destination: "/lib",
+				Source:      "/lib",
+				Type:        "bind",
+				Options:     []string{"rbind", "ro"},
+			},
+			{
+				Destination: "/lib64",
+				Source:      "/lib64",
+				Type:        "bind",
+				Options:     []string{"rbind", "ro"},
+			},
+			{
+				Destination: "/etc",
+				Source:      "/etc",
+				Type:        "bind",
+				Options:     []string{"rbind", "ro"},
 			},
 		},
 	}
@@ -86,7 +104,7 @@ func CreateContainerBundle(bundlePath string, spec *specs.Spec) error {
 
 	// Create essential directories in rootfs
 	essentialDirs := []string{
-		"bin", "usr/bin", "usr/lib", "usr/lib/jvm", "app", "tmp", "var", "etc",
+		"bin", "usr/bin", "usr/lib", "usr/lib/jvm", "app", "tmp", "var", "etc", "lib", "lib64",
 	}
 	for _, dir := range essentialDirs {
 		dirPath := filepath.Join(rootfsPath, dir)

@@ -82,6 +82,36 @@ func TestLiveNomadServer_RunHelloWorldJar(t *testing.T) {
 		if logContent, logErr := os.ReadFile(logPath); logErr == nil {
 			t.Logf("Nomad logs:\n%s", string(logContent))
 		}
+		
+		// Try to find and print executor logs which should contain crun error output
+		if allocs, _, allocErr := testServer.client.Jobs().Allocations(jobID, false, nil); allocErr == nil && len(allocs) > 0 {
+			// Try to find executor.out files in the allocation directories
+			// These should be in the nomad data directory under allocations
+			allocDirs := []string{
+				filepath.Join(testServer.dataDir, "alloc", allocs[0].ID),
+				filepath.Join(testServer.dataDir, "client", "alloc", allocs[0].ID),
+			}
+			
+			for _, allocDir := range allocDirs {
+				executorLogPath := filepath.Join(allocDir, "java-app", "executor.out")
+				if executorContent, executorErr := os.ReadFile(executorLogPath); executorErr == nil {
+					t.Logf("Executor logs from %s:\n%s", executorLogPath, string(executorContent))
+				}
+				
+				// Also try to find any other log files in the allocation directory
+				if entries, readErr := os.ReadDir(filepath.Join(allocDir, "java-app")); readErr == nil {
+					for _, entry := range entries {
+						if !entry.IsDir() && (entry.Name() == "executor.out" || entry.Name() == "stderr" || entry.Name() == "stdout" ||
+							entry.Name() == "crun-debug.log" || entry.Name() == "crun-stdout.log" || entry.Name() == "crun-stderr.log") {
+							logFilePath := filepath.Join(allocDir, "java-app", entry.Name())
+							if content, readFileErr := os.ReadFile(logFilePath); readFileErr == nil {
+								t.Logf("Task log file %s:\n%s", entry.Name(), string(content))
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 	require.NoError(t, err, "Job should complete successfully")
 
@@ -109,6 +139,34 @@ func TestLiveNomadServer_RunHelloWorldJar(t *testing.T) {
 						t.Logf("Task %s state: %s", taskName, taskState.State)
 						for j, event := range taskState.Events {
 							t.Logf("  Event %d: Type=%s, Message=%s", j, event.Type, event.DisplayMessage)
+						}
+					}
+				}
+				
+				// Try to read executor logs and task directory contents for failed jobs
+				allocDirs := []string{
+					filepath.Join(testServer.dataDir, "alloc", alloc.ID),
+					filepath.Join(testServer.dataDir, "client", "alloc", alloc.ID),
+				}
+				
+				for _, allocDir := range allocDirs {
+					taskDir := filepath.Join(allocDir, "java-app")
+					if entries, readErr := os.ReadDir(taskDir); readErr == nil {
+						t.Logf("Task directory contents for allocation %s:", alloc.ID)
+						for _, entry := range entries {
+							if entry.IsDir() {
+								t.Logf("  Dir: %s", entry.Name())
+							} else {
+								t.Logf("  File: %s", entry.Name())
+								// Read content of important files
+								if entry.Name() == "executor.out" || entry.Name() == "stderr" || entry.Name() == "stdout" || 
+								   entry.Name() == "crun-debug.log" || entry.Name() == "crun-stdout.log" || entry.Name() == "crun-stderr.log" {
+									filePath := filepath.Join(taskDir, entry.Name())
+									if content, readFileErr := os.ReadFile(filePath); readFileErr == nil {
+										t.Logf("    Content of %s:\n%s", entry.Name(), string(content))
+									}
+								}
+							}
 						}
 					}
 				}

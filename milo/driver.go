@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/consul-template/signals"
@@ -370,10 +371,20 @@ func (d *MiloDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHand
 
 	// Create container bundle for crun execution
 	bundlePath := filepath.Join(cfg.TaskDir().Dir, "container-bundle")
-	containerID := fmt.Sprintf("milo-task-%s", cfg.ID)
+	// Sanitize container ID by replacing slashes with hyphens (crun doesn't allow slashes in container IDs)
+	sanitizedID := strings.ReplaceAll(cfg.ID, "/", "-")
+	containerID := fmt.Sprintf("milo-task-%s", sanitizedID)
 
+	// Convert host artifact path to container path
+	// The task directory is mounted to /app, so convert the path accordingly
+	relativeArtifactPath, err := filepath.Rel(cfg.TaskDir().Dir, artifactPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get relative artifact path: %v", err)
+	}
+	containerArtifactPath := filepath.Join("/app", relativeArtifactPath)
+	
 	// Create OCI specification for the JAR execution
-	spec, err := CreateOCISpec(javaHome, "/app/artifact.jar", cfg.TaskDir().Dir)
+	spec, err := CreateOCISpec(javaHome, containerArtifactPath, cfg.TaskDir().Dir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create OCI spec: %v", err)
 	}
@@ -413,7 +424,7 @@ func (d *MiloDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHand
 		return nil, nil, fmt.Errorf("failed to create executor: %v", err)
 	}
 
-	// Use crun command instead of shell echo
+	// Use crun command directly
 	execCmd := &executor.ExecCommand{
 		Cmd:        crunCmd[0],  // "crun"
 		Args:       crunCmd[1:], // ["run", "--bundle", bundlePath, containerID]

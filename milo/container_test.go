@@ -41,7 +41,7 @@ func TestCreateOCISpec(t *testing.T) {
 	require.NotEmpty(t, spec.Process.Args, "Expected process args to not be empty")
 
 	// Should contain java command
-	expectedArgs := []string{"java", "-jar", "/app/hello-world.jar"}
+	expectedArgs := []string{"/usr/lib/jvm/java/bin/java", "-jar", "/app/hello-world.jar"}
 	require.Equal(t, len(expectedArgs), len(spec.Process.Args), "Expected correct number of process args")
 
 	for i, arg := range expectedArgs {
