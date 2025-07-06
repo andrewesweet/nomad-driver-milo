@@ -17,7 +17,6 @@ import (
 	"github.com/hashicorp/consul-template/signals"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/drivers/shared/eventer"
-	"github.com/hashicorp/nomad/drivers/shared/executor"
 	"github.com/hashicorp/nomad/plugins/base"
 	"github.com/hashicorp/nomad/plugins/drivers"
 	"github.com/hashicorp/nomad/plugins/shared/hclspec"
@@ -125,19 +124,13 @@ type TaskConfig struct {
 // This information is needed to rebuild the task state and handler during
 // recovery.
 type TaskState struct {
-	ReattachConfig *structs.ReattachConfig
-	TaskConfig     *drivers.TaskConfig
-	StartedAt      time.Time
+	TaskConfig *drivers.TaskConfig
+	StartedAt  time.Time
+	Pid        int
 
-	// TODO: add any extra important values that must be persisted in order
-	// to restore a task.
-	//
-	// The plugin keeps track of its running tasks in a in-memory data
-	// structure. If the plugin crashes, this data will be lost, so Nomad
-	// will respawn a new instance of the plugin and try to restore its
-	// in-memory representation of the running tasks using the RecoverTask()
-	// method below.
-	Pid int
+	// Note: We don't store ReattachConfig since we're using direct exec.Command
+	// which doesn't support reattachment. In a production driver, you might
+	// want to use a different approach that supports recovery.
 }
 
 // MiloDriverPlugin is an example driver plugin. When provisioned in a job,
@@ -404,61 +397,64 @@ func (d *MiloDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHand
 	crunCmd := GenerateCrunCommand(bundlePath, containerID)
 	d.logger.Info("executing JAR with crun", "command", crunCmd)
 
-	// TODO: implement driver specific mechanism to start the task.
-	//
-	// Once the task is started you will need to store any relevant runtime
-	// information in a taskHandle and TaskState. The taskHandle will be
-	// stored in-memory in the plugin and will be used to interact with the
-	// task.
-	//
-	// The TaskState will be returned to the Nomad client inside a
-	// drivers.TaskHandle instance. This TaskHandle will be sent back to plugin
-	// if the task ever needs to be recovered, so the TaskState should contain
-	// enough information to handle that.
-	//
-	// In the example below we use an executor to fork a process to run our
-	// greeter. The executor is then stored in the handle so we can access it
-	// later and the the plugin.Client is used to generate a reattach
-	// configuration that can be used to recover communication with the task.
-	executorConfig := &executor.ExecutorConfig{
-		LogFile:  filepath.Join(cfg.TaskDir().Dir, "executor.out"),
-		LogLevel: "debug",
-	}
+	// Create crun command using exec.Command for better streaming control
+	cmd := exec.Command(crunCmd[0], crunCmd[1:]...)
 
-	exec, pluginClient, err := executor.CreateExecutor(d.logger, d.nomadConfig, executorConfig)
+	// Create pipes for stdout and stderr
+	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create executor: %v", err)
+		return nil, nil, fmt.Errorf("failed to create stdout pipe: %v", err)
 	}
 
-	// Use crun command directly
-	execCmd := &executor.ExecCommand{
-		Cmd:        crunCmd[0],  // "crun"
-		Args:       crunCmd[1:], // ["run", "--bundle", bundlePath, containerID]
-		StdoutPath: cfg.StdoutPath,
-		StderrPath: cfg.StderrPath,
-	}
-
-	ps, err := exec.Launch(execCmd)
+	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
-		pluginClient.Kill()
-		return nil, nil, fmt.Errorf("failed to launch command with executor: %v", err)
+		return nil, nil, fmt.Errorf("failed to create stderr pipe: %v", err)
 	}
 
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return nil, nil, fmt.Errorf("failed to start crun: %v", err)
+	}
+
+	// Create context for log streaming
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Create task handle
 	h := &taskHandle{
-		exec:         exec,
-		pid:          ps.Pid,
-		pluginClient: pluginClient,
+		cmd:          cmd,
+		pid:          cmd.Process.Pid,
 		taskConfig:   cfg,
 		procState:    drivers.TaskStateRunning,
 		startedAt:    time.Now().Round(time.Millisecond),
 		logger:       d.logger,
+		ctx:          ctx,
+		cancelFunc:   cancel,
+		waitCh:       make(chan struct{}),
+		stdoutStream: nil, // Will be set below
+		stderrStream: nil, // Will be set below
 	}
 
+	// Create and start log streamers
+	h.stdoutStream = NewLogStreamer(d.logger.Named("stdout"), cfg.StdoutPath, stdoutPipe)
+	h.stderrStream = NewLogStreamer(d.logger.Named("stderr"), cfg.StderrPath, stderrPipe)
+
+	// Start streaming goroutines
+	go func() {
+		if err := h.stdoutStream.Stream(h.ctx); err != nil {
+			d.logger.Error("stdout streaming failed", "error", err)
+		}
+	}()
+
+	go func() {
+		if err := h.stderrStream.Stream(h.ctx); err != nil {
+			d.logger.Error("stderr streaming failed", "error", err)
+		}
+	}()
+
 	driverState := TaskState{
-		ReattachConfig: structs.ReattachConfigFromGoPlugin(pluginClient.ReattachConfig()),
-		Pid:            ps.Pid,
-		TaskConfig:     cfg,
-		StartedAt:      h.startedAt,
+		Pid:        h.pid,
+		TaskConfig: cfg,
+		StartedAt:  h.startedAt,
 	}
 
 	if err := handle.SetDriverState(&driverState); err != nil {
@@ -490,37 +486,20 @@ func (d *MiloDriverPlugin) RecoverTask(handle *drivers.TaskHandle) error {
 		return fmt.Errorf("failed to decode driver config: %v", err)
 	}
 
-	// TODO: implement driver specific logic to recover a task.
-	//
-	// Recovering a task involves recreating and storing a taskHandle as if the
-	// task was just started.
-	//
-	// In the example below we use the executor to re-attach to the process
-	// that was created when the task first started.
-	plugRC, err := structs.ReattachConfigToGoPlugin(taskState.ReattachConfig)
-	if err != nil {
-		return fmt.Errorf("failed to build ReattachConfig from taskConfig state: %v", err)
-	}
-
-	execImpl, pluginClient, err := executor.ReattachToExecutor(plugRC, d.logger, d.nomadConfig.Topology.Compute())
-	if err != nil {
-		return fmt.Errorf("failed to reattach to executor: %v", err)
-	}
-
-	h := &taskHandle{
-		exec:         execImpl,
-		pid:          taskState.Pid,
-		pluginClient: pluginClient,
-		taskConfig:   taskState.TaskConfig,
-		procState:    drivers.TaskStateRunning,
-		startedAt:    taskState.StartedAt,
-		exitResult:   &drivers.ExitResult{},
-	}
-
-	d.tasks.Set(taskState.TaskConfig.ID, h)
-
-	go h.run()
-	return nil
+	// For now, we cannot recover tasks since we're using direct exec.Command
+	// which doesn't support reattachment. In a production driver, we might:
+	// 1. Use a supervisor process that can be reattached
+	// 2. Store enough state to recreate the process monitoring
+	// 3. Check if the process is still running via PID
+	
+	// Mark the task as lost since we can't reattach to it
+	d.logger.Warn("cannot recover task - direct exec doesn't support reattachment", 
+		"task_id", handle.Config.ID,
+		"pid", taskState.Pid)
+	
+	// We could check if the process is still running and create a minimal handle
+	// but for now, we'll just return an error to indicate the task is lost
+	return fmt.Errorf("task recovery not supported with direct exec.Command")
 }
 
 // WaitTask returns a channel used to notify Nomad when a task exits.
@@ -537,38 +516,28 @@ func (d *MiloDriverPlugin) WaitTask(ctx context.Context, taskID string) (<-chan 
 
 func (d *MiloDriverPlugin) handleWait(ctx context.Context, handle *taskHandle, ch chan *drivers.ExitResult) {
 	defer close(ch)
-	var result *drivers.ExitResult
 
-	// TODO: implement driver specific logic to notify Nomad the task has been
-	// completed and what was the exit result.
-	//
-	// When a result is sent in the result channel Nomad will stop the task and
-	// emit an event that an operator can use to get an insight on why the task
-	// stopped.
-	//
-	// In the example below we block and wait until the executor finishes
-	// running, at which point we send the exit code and signal in the result
-	// channel.
-	ps, err := handle.exec.Wait(ctx)
-	if err != nil {
-		result = &drivers.ExitResult{
-			Err: fmt.Errorf("executor: error waiting on process: %v", err),
-		}
-	} else {
-		result = &drivers.ExitResult{
-			ExitCode: ps.ExitCode,
-			Signal:   ps.Signal,
-		}
-	}
+	// Wait for the task to complete
+	select {
+	case <-handle.waitCh:
+		// Task completed, get the result
+		handle.stateLock.RLock()
+		result := handle.exitResult
+		handle.stateLock.RUnlock()
 
-	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-d.ctx.Done():
 			return
 		case ch <- result:
+			return
 		}
+
+	case <-ctx.Done():
+		return
+	case <-d.ctx.Done():
+		return
 	}
 }
 
@@ -579,20 +548,39 @@ func (d *MiloDriverPlugin) StopTask(taskID string, timeout time.Duration, signal
 		return drivers.ErrTaskNotFound
 	}
 
-	// TODO: implement driver specific logic to stop a task.
-	//
-	// The StopTask function is expected to stop a running task by sending the
-	// given signal to it. If the task does not stop during the given timeout,
-	// the driver must forcefully kill the task.
-	//
-	// In the example below we let the executor handle the task shutdown
-	// process for us, but you might need to customize this for your own
-	// implementation.
-	if err := handle.exec.Shutdown(signal, timeout); err != nil {
-		if handle.pluginClient.Exited() {
-			return nil
+	// Stop the command using signal
+	if handle.cmd != nil && handle.cmd.Process != nil {
+		// Convert signal name to syscall.Signal
+		sig := signals.SignalLookup[signal]
+		if sig == nil {
+			// Default to SIGTERM if signal not found
+			sig = signals.SignalLookup["SIGTERM"]
 		}
-		return fmt.Errorf("executor Shutdown failed: %v", err)
+
+		// Send signal to the process
+		if err := handle.cmd.Process.Signal(sig); err != nil {
+			d.logger.Warn("failed to send signal", "signal", signal, "error", err)
+		}
+
+		// Wait for timeout
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+
+		select {
+		case <-handle.waitCh:
+			// Process exited gracefully
+			return nil
+		case <-timer.C:
+			// Timeout exceeded, force kill
+			if err := handle.cmd.Process.Kill(); err != nil {
+				d.logger.Error("failed to kill process", "error", err)
+			}
+		}
+	}
+
+	// Cancel log streaming
+	if handle.cancelFunc != nil {
+		handle.cancelFunc()
 	}
 
 	return nil
@@ -609,21 +597,21 @@ func (d *MiloDriverPlugin) DestroyTask(taskID string, force bool) error {
 		return errors.New("cannot destroy running task")
 	}
 
-	// TODO: implement driver specific logic to destroy a complete task.
-	//
-	// Destroying a task includes removing any resources used by task and any
-	// local references in the plugin. If force is set to true the task should
-	// be destroyed even if it's currently running.
-	//
-	// In the example below we use the executor to force shutdown the task
-	// (timeout equals 0).
-	if !handle.pluginClient.Exited() {
-		if err := handle.exec.Shutdown("", 0); err != nil {
-			handle.logger.Error("destroying executor failed", "err", err)
+	// If force is set, kill the process immediately
+	if force && handle.cmd != nil && handle.cmd.Process != nil {
+		if err := handle.cmd.Process.Kill(); err != nil {
+			handle.logger.Error("failed to force kill process", "err", err)
 		}
-
-		handle.pluginClient.Kill()
 	}
+
+	// Cancel log streaming context
+	if handle.cancelFunc != nil {
+		handle.cancelFunc()
+	}
+
+	// Clean up any container resources
+	// The container should already be cleaned up by crun when process exits
+	// but we can add additional cleanup here if needed
 
 	d.tasks.Delete(taskID)
 	return nil

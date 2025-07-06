@@ -5,6 +5,7 @@ package milo
 
 import (
 	"context"
+	"os/exec"
 	"strconv"
 	"sync"
 	"time"
@@ -23,16 +24,26 @@ type taskHandle struct {
 	stateLock sync.RWMutex
 
 	logger       hclog.Logger
-	exec         executor.Executor
-	pluginClient *plugin.Client
+	cmd          *exec.Cmd           // Direct command execution
 	taskConfig   *drivers.TaskConfig
 	procState    drivers.TaskState
 	startedAt    time.Time
 	completedAt  time.Time
 	exitResult   *drivers.ExitResult
 
-	// TODO: add any extra relevant information about the task.
-	pid int
+	// Process management
+	pid        int
+	ctx        context.Context
+	cancelFunc context.CancelFunc
+	waitCh     chan struct{}
+
+	// Log streaming
+	stdoutStream *LogStreamer
+	stderrStream *LogStreamer
+
+	// Legacy fields for compatibility (may be removed later)
+	exec         executor.Executor
+	pluginClient *plugin.Client
 }
 
 func (h *taskHandle) TaskStatus() *drivers.TaskStatus {
@@ -65,19 +76,32 @@ func (h *taskHandle) run() {
 	}
 	h.stateLock.Unlock()
 
-	// TODO: wait for your task to complete and upate its state.
-	ps, err := h.exec.Wait(context.Background())
+	// Wait for the command to complete
+	err := h.cmd.Wait()
+	
+	// Signal that process has finished
+	close(h.waitCh)
+	
+	// Cancel log streaming context
+	if h.cancelFunc != nil {
+		h.cancelFunc()
+	}
+
 	h.stateLock.Lock()
 	defer h.stateLock.Unlock()
 
 	if err != nil {
-		h.exitResult.Err = err
-		h.procState = drivers.TaskStateUnknown
-		h.completedAt = time.Now()
-		return
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			h.exitResult.ExitCode = exitErr.ExitCode()
+			h.procState = drivers.TaskStateExited
+		} else {
+			h.exitResult.Err = err
+			h.procState = drivers.TaskStateUnknown
+		}
+	} else {
+		h.procState = drivers.TaskStateExited
+		h.exitResult.ExitCode = 0
 	}
-	h.procState = drivers.TaskStateExited
-	h.exitResult.ExitCode = ps.ExitCode
-	h.exitResult.Signal = ps.Signal
-	h.completedAt = ps.Time
+	
+	h.completedAt = time.Now()
 }

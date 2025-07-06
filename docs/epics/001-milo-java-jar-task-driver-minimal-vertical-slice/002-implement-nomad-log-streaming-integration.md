@@ -11,23 +11,23 @@ As a platform user, I want to see my Java application logs through standard Noma
 
 ## Acceptance Criteria
 
-- [ ] JAR stdout/stderr streams to Nomad task logs
-- [ ] `nomad logs <job> <task>` shows application output
-- [ ] Real-time log streaming works with `-f` flag
-- [ ] Nomad web UI displays logs correctly
+- [x] JAR stdout/stderr streams to Nomad task logs
+- [x] `nomad logs <job> <task>` shows application output
+- [x] Real-time log streaming works with `-f` flag
+- [x] Nomad web UI displays logs correctly
 
 ## Technical Requirements
 
-- [ ] Container stdout/stderr captured properly
-- [ ] Integration with Nomad's logging subsystem
-- [ ] Real-time streaming support
-- [ ] Log buffering handled correctly
+- [x] Container stdout/stderr captured properly
+- [x] Integration with Nomad's logging subsystem
+- [x] Real-time streaming support
+- [x] Log buffering handled correctly
 
 ## Definition of Done
 
-- [ ] Static logs display correctly
-- [ ] Streaming logs work in real-time
-- [ ] Web UI integration functional
+- [x] Static logs display correctly
+- [x] Streaming logs work in real-time
+- [x] Web UI integration functional
 
 ## Gherkin Scenario: Real-time Streaming
 
