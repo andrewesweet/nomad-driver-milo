@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "language-server": {
+      "type": "stdio",
+      "command": "mcp-language-server",
+      "args": [
+        "--workspace", 
+        "/home/sweeand/andrewesweet/nomad-driver-milo", 
+        "--lsp", 
+        "gopls"],
+      "env": {
+        "PATH": "/home/sweeand/go/bin",
+        "GOPATH": "/home/sweeand/go",
+        "GOCACHE": "/home/sweeand/.cache/go-build",
+        "GOMODCACHE": "/home/sweeand/go/pkg/mod"
+      }
+    }
+  }
+}
