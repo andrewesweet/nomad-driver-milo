@@ -45,8 +45,27 @@ func ValidateJavaExecutable(javaDir string) bool {
 }
 
 // FormatMissingJavaError generates a user-friendly error for missing Java
-func FormatMissingJavaError() error {
-	return fmt.Errorf("Error: No Java runtime found on host. Please install Java to use Milo driver.")
+func FormatMissingJavaError(searchPaths []string) error {
+	msg := "Error: No Java runtime found on host. Please install Java to use Milo driver.\n\n"
+	msg += "Searched locations:\n"
+
+	// Check JAVA_HOME first
+	if javaHome := os.Getenv("JAVA_HOME"); javaHome != "" {
+		msg += fmt.Sprintf("- JAVA_HOME: %s (invalid or not found)\n", javaHome)
+	} else {
+		msg += "- JAVA_HOME environment variable (not set)\n"
+	}
+
+	// List all searched paths
+	for _, path := range searchPaths {
+		msg += fmt.Sprintf("- %s (not found)\n", path)
+	}
+
+	msg += "\nTo fix:\n"
+	msg += "1. Install Java: sudo apt install openjdk-17-jdk\n"
+	msg += "2. Or set JAVA_HOME to existing installation"
+
+	return fmt.Errorf("%s", msg)
 }
 
 // DetectJavaRuntime attempts to find a Java runtime on the system
@@ -64,5 +83,5 @@ func DetectJavaRuntime(searchPaths []string) (string, error) {
 	}
 
 	// No Java runtime found
-	return "", FormatMissingJavaError()
+	return "", FormatMissingJavaError(searchPaths)
 }

@@ -3,6 +3,7 @@ package milo
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -106,13 +107,20 @@ func TestValidateJavaExecutable_ValidJava(t *testing.T) {
 // === CYCLE 11: Missing Java error generation ===
 // Phase: RED
 func TestFormatMissingJavaError_GeneratesMessage(t *testing.T) {
-	// When we format a missing Java error
-	err := FormatMissingJavaError()
+	// When we format a missing Java error with search paths
+	searchPaths := []string{"/usr/lib/jvm/java-17", "/opt/java"}
+	err := FormatMissingJavaError(searchPaths)
 
-	// Then we should get the expected error message
-	expectedMsg := "Error: No Java runtime found on host. Please install Java to use Milo driver."
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	// Then we should get an error message containing key information
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "No Java runtime found on host") {
+		t.Errorf("expected error to contain 'No Java runtime found on host', got %q", errMsg)
+	}
+	if !strings.Contains(errMsg, "Searched locations:") {
+		t.Errorf("expected error to contain 'Searched locations:', got %q", errMsg)
+	}
+	if !strings.Contains(errMsg, "/usr/lib/jvm/java-17") {
+		t.Errorf("expected error to contain searched path, got %q", errMsg)
 	}
 }
 
@@ -161,8 +169,9 @@ func TestDetectJavaRuntime_NoJavaFound(t *testing.T) {
 		t.Error("expected error when no Java found, got nil")
 	}
 
-	expectedMsg := "Error: No Java runtime found on host. Please install Java to use Milo driver."
-	if err.Error() != expectedMsg {
-		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
+	// Check that the error message contains the key parts
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "No Java runtime found on host") {
+		t.Errorf("expected error to contain 'No Java runtime found on host', got %q", errMsg)
 	}
 }
