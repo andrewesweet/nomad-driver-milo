@@ -20,7 +20,7 @@ gemini -d -p "Debug this issue"
 ```
 
 **When to use Gemini:**
-- Full codebase analysis and understanding
+- Full codebase analysis and understanding (tip: run gemini with the project root folder and use the -a flag for it to automatically ingest all files in the codebase into its context)
 - Complex problem solving and planning
 - Debugging intricate issues
 - Architecture reviews

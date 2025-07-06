@@ -362,7 +362,11 @@ func (d *MiloDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHand
 		"/opt/java",
 		"/usr/java",
 	}
-	javaHome, err := DetectJavaRuntime(commonJavaPaths)
+
+	// Use common Java paths (test mode handled in BDD tests via environment)
+	searchPaths := commonJavaPaths
+
+	javaHome, err := DetectJavaRuntime(searchPaths)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Java runtime detection failed: %v", err)
 	}
@@ -382,12 +386,14 @@ func (d *MiloDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHand
 		return nil, nil, fmt.Errorf("failed to get relative artifact path: %v", err)
 	}
 	containerArtifactPath := filepath.Join("/app", relativeArtifactPath)
-	
+
 	// Create OCI specification for the JAR execution
 	spec, err := CreateOCISpec(javaHome, containerArtifactPath, cfg.TaskDir().Dir)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create OCI spec: %v", err)
 	}
+
+	// OCI spec logging for testing can be added later if needed
 
 	// Create the container bundle
 	if err := CreateContainerBundle(bundlePath, spec); err != nil {

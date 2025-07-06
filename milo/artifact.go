@@ -14,7 +14,7 @@ func ValidateArtifactExtension(artifactPath string) error {
 
 	// Check if it ends with .jar
 	if !strings.HasSuffix(strings.ToLower(filename), ".jar") {
-		return fmt.Errorf("Artifact must be a .jar file, got: %s", filename)
+		return fmt.Errorf("Error: Artifact must be a .jar file, got: %s", filename)
 	}
 
 	return nil
@@ -52,7 +52,7 @@ func CheckArtifactExists(artifactPath string) bool {
 // ValidateArtifactExists checks if the artifact file exists and returns appropriate error
 func ValidateArtifactExists(artifactPath string) error {
 	if !CheckArtifactExists(artifactPath) {
-		return fmt.Errorf("Failed to download artifact: file not found")
+		return fmt.Errorf("Error: Failed to download artifact: file not found")
 	}
 	return nil
 }

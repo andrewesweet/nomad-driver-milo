@@ -110,7 +110,7 @@ func TestFormatMissingJavaError_GeneratesMessage(t *testing.T) {
 	err := FormatMissingJavaError()
 
 	// Then we should get the expected error message
-	expectedMsg := "No Java runtime found on host. Please install Java to use Milo driver."
+	expectedMsg := "Error: No Java runtime found on host. Please install Java to use Milo driver."
 	if err.Error() != expectedMsg {
 		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
 	}
@@ -161,7 +161,7 @@ func TestDetectJavaRuntime_NoJavaFound(t *testing.T) {
 		t.Error("expected error when no Java found, got nil")
 	}
 
-	expectedMsg := "No Java runtime found on host. Please install Java to use Milo driver."
+	expectedMsg := "Error: No Java runtime found on host. Please install Java to use Milo driver."
 	if err.Error() != expectedMsg {
 		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
 	}

@@ -5,7 +5,7 @@ export GO111MODULE=on
 
 default: build
 
-.PHONY: clean test test-unit test-acceptance test-live-e2e test-all build help
+.PHONY: clean test test-unit test-acceptance test-bdd test-live-e2e test-all build help
 
 help: ## Display this help message
 	@echo "Available targets:"
@@ -17,13 +17,21 @@ clean: ## Remove build artifacts
 
 test: test-unit test-acceptance ## Run core tests (unit and acceptance)
 
-test-all: test-unit test-acceptance test-live-e2e ## Run all tests including live e2e
+test-all: test-unit test-acceptance test-bdd test-live-e2e ## Run all tests including BDD and live e2e
 
 test-unit: ## Run unit tests
 	go test -v ./...
 
 test-acceptance: ## Run acceptance tests using godog
 	go test -v -tags=acceptance .
+
+test-bdd: build ## Run BDD acceptance tests with real driver integration
+	@echo "==> Running BDD acceptance tests..."
+	go test -v ./features -timeout 30m
+
+test-bdd-focus: build ## Run focused BDD test (use SCENARIO env var)
+	@echo "==> Running focused BDD test..."
+	go test -v ./features -timeout 30m -run "$(SCENARIO)"
 
 test-live-e2e: build ## Run live integration e2e tests
 	@echo "==> Running live e2e tests (requires nomad binary)"

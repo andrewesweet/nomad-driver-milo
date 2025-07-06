@@ -20,7 +20,7 @@ func TestValidateArtifactExtension_RejectsNonJar(t *testing.T) {
 		t.Error("expected error for non-JAR file, got nil")
 	}
 
-	expectedMsg := "Artifact must be a .jar file, got: my-script.py"
+	expectedMsg := "Error: Artifact must be a .jar file, got: my-script.py"
 	if err.Error() != expectedMsg {
 		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
 	}
@@ -134,7 +134,7 @@ func TestValidateArtifactExists_ReturnsError(t *testing.T) {
 		t.Error("expected error for missing file, got nil")
 	}
 
-	expectedMsg := "Failed to download artifact: file not found"
+	expectedMsg := "Error: Failed to download artifact: file not found"
 	if err.Error() != expectedMsg {
 		t.Errorf("expected error message %q, got %q", expectedMsg, err.Error())
 	}

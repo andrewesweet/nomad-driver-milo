@@ -46,7 +46,7 @@ func ValidateJavaExecutable(javaDir string) bool {
 
 // FormatMissingJavaError generates a user-friendly error for missing Java
 func FormatMissingJavaError() error {
-	return fmt.Errorf("No Java runtime found on host. Please install Java to use Milo driver.")
+	return fmt.Errorf("Error: No Java runtime found on host. Please install Java to use Milo driver.")
 }
 
 // DetectJavaRuntime attempts to find a Java runtime on the system
