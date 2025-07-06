@@ -328,20 +328,12 @@ func (d *MiloDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHand
 	handle := drivers.NewTaskHandle(taskHandleVersion)
 	handle.Config = cfg
 
-	// Validate artifacts before starting the task
-	artifactPath, err := FindArtifactInTaskDir(cfg.TaskDir().Dir)
+	// Validate artifacts before starting the task using comprehensive validator
+	validator := NewArtifactValidator(cfg.TaskDir().Dir)
+	artifactPath, err := validator.FindAndValidateArtifact()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find artifact: %v", err)
-	}
-
-	// Check if artifact file exists
-	if err := ValidateArtifactExists(artifactPath); err != nil {
-		return nil, nil, fmt.Errorf("artifact validation failed: %v", err)
-	}
-
-	// Check if artifact has correct extension
-	if err := ValidateArtifactExtension(artifactPath); err != nil {
-		return nil, nil, fmt.Errorf("artifact validation failed: %v", err)
+		// Return the error directly since it already has user-friendly formatting
+		return nil, nil, err
 	}
 
 	// Detect Java runtime on the host
@@ -398,6 +390,7 @@ func (d *MiloDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHand
 	d.logger.Info("executing JAR with crun", "command", crunCmd)
 
 	// Create crun command using exec.Command for better streaming control
+	// #nosec G204 - crunCmd is generated internally with validated inputs
 	cmd := exec.Command(crunCmd[0], crunCmd[1:]...)
 
 	// Create pipes for stdout and stderr
@@ -491,12 +484,12 @@ func (d *MiloDriverPlugin) RecoverTask(handle *drivers.TaskHandle) error {
 	// 1. Use a supervisor process that can be reattached
 	// 2. Store enough state to recreate the process monitoring
 	// 3. Check if the process is still running via PID
-	
+
 	// Mark the task as lost since we can't reattach to it
-	d.logger.Warn("cannot recover task - direct exec doesn't support reattachment", 
+	d.logger.Warn("cannot recover task - direct exec doesn't support reattachment",
 		"task_id", handle.Config.ID,
 		"pid", taskState.Pid)
-	
+
 	// We could check if the process is still running and create a minimal handle
 	// but for now, we'll just return an error to indicate the task is lost
 	return fmt.Errorf("task recovery not supported with direct exec.Command")
