@@ -4,35 +4,34 @@ package live
 
 import (
 	"fmt"
-	"math/rand"
-	"net/http"
-	"net/http/httptest"
 	"os"
-	"regexp"
-	"strings"
 	"testing"
-	"time"
+	
+	"github.com/andrewesweet/nomad-driver-milo/e2e/shared"
 )
 
 var (
-	testServer        *LiveNomadServer
+	testServer        *shared.LiveNomadServer
+	artifactServer    *shared.ArtifactServer
 	artifactServerURL string
 )
 
 func TestMain(m *testing.M) {
-	// 1. Start HTTP artifact server
-	artifactServer := httptest.NewServer(http.FileServer(http.Dir("../../test-artifacts")))
-	artifactServerURL = artifactServer.URL
+	// 1. Start HTTP artifact server using shared infrastructure
+	artifactServer = shared.NewArtifactServer("../../test-artifacts")
+	artifactServerURL = artifactServer.URL()
 
 	// 2. Start shared Nomad server
-	t := &testing.T{}
-	server := NewLiveNomadServer(t)
-	if err := server.Start(); err != nil {
+	testServer = shared.NewLiveNomadServer()
+	if err := testServer.Start(); err != nil {
 		artifactServer.Close()
-		server.Stop()
+		testServer.Stop()
 		os.Exit(1)
 	}
-	testServer = server
+
+	// Set NOMAD_ADDR environment variable for all tests
+	nomadAddr := fmt.Sprintf("http://127.0.0.1:%d", testServer.GetHTTPPort())
+	os.Setenv("NOMAD_ADDR", nomadAddr)
 
 	// 3. Run tests
 	exitCode := m.Run()
@@ -43,18 +42,7 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-// sanitizeForNomadJobID converts test names to valid Nomad job IDs
-func sanitizeForNomadJobID(name string) string {
-	name = strings.ReplaceAll(name, "/", "-")
-	reg := regexp.MustCompile(`[^a-zA-Z0-9-]+`)
-	sanitized := reg.ReplaceAllString(name, "-")
-	sanitized = strings.Trim(sanitized, "-")
-	return strings.ToLower(sanitized)
-}
-
-// generateTestJobID creates unique job IDs for parallel tests
+// generateTestJobID creates unique job IDs for parallel tests using shared helper
 func generateTestJobID(t *testing.T) string {
-	rand.Seed(time.Now().UnixNano())
-	baseName := sanitizeForNomadJobID(t.Name())
-	return fmt.Sprintf("%s-%d", baseName, rand.Intn(10000))
+	return shared.GenerateTestJobID(t.Name())
 }

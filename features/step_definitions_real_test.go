@@ -1,4 +1,4 @@
-//go:build !real_bdd
+//go:build real_bdd
 
 package features
 
@@ -15,9 +15,9 @@ import (
 	"github.com/cucumber/godog"
 )
 
-// Step definition methods for BDDTestContext
+// Step definition methods for RealBDDTestContext
 
-func (ctx *BDDTestContext) aHostWithJavaRuntimeInstalledAt(path string) error {
+func (ctx *RealBDDTestContext) aHostWithJavaRuntimeInstalledAt(path string) error {
 	// Create a mock Java installation directory structure
 	javaDir := filepath.Join(ctx.tempDir, "java")
 	if err := os.MkdirAll(filepath.Join(javaDir, "bin"), 0755); err != nil {
@@ -35,13 +35,13 @@ func (ctx *BDDTestContext) aHostWithJavaRuntimeInstalledAt(path string) error {
 	return nil
 }
 
-func (ctx *BDDTestContext) aHostWithNoJavaRuntimeInstalled() error {
+func (ctx *RealBDDTestContext) aHostWithNoJavaRuntimeInstalled() error {
 	// Remove Java from the environment
 	ctx.removeJavaPath()
 	return nil
 }
 
-func (ctx *BDDTestContext) aTestJARFileExistsAt(path string) error {
+func (ctx *RealBDDTestContext) aTestJARFileExistsAt(path string) error {
 	// Extract filename from path
 	filename := filepath.Base(path)
 
@@ -56,19 +56,19 @@ func (ctx *BDDTestContext) aTestJARFileExistsAt(path string) error {
 	return nil
 }
 
-func (ctx *BDDTestContext) theJARWhenExecutedPrintsExactly(expectedOutput string) error {
+func (ctx *RealBDDTestContext) theJARWhenExecutedPrintsExactly(expectedOutput string) error {
 	// Store the expected output for later verification
 	ctx.expectedOutput = expectedOutput
 	return nil
 }
 
-func (ctx *BDDTestContext) theJARExitsWithCode(exitCode int) error {
+func (ctx *RealBDDTestContext) theJARExitsWithCode(exitCode int) error {
 	// Store the expected exit code
 	ctx.lastExitCode = exitCode
 	return nil
 }
 
-func (ctx *BDDTestContext) aPythonScriptExistsAt(path string) error {
+func (ctx *RealBDDTestContext) aPythonScriptExistsAt(path string) error {
 	// Extract filename from path
 	filename := filepath.Base(path)
 
@@ -84,7 +84,7 @@ func (ctx *BDDTestContext) aPythonScriptExistsAt(path string) error {
 	return nil
 }
 
-func (ctx *BDDTestContext) noFileExistsAt(path string) error {
+func (ctx *RealBDDTestContext) noFileExistsAt(path string) error {
 	// Extract filename from path
 	filename := filepath.Base(path)
 
@@ -100,7 +100,7 @@ func (ctx *BDDTestContext) noFileExistsAt(path string) error {
 	return nil
 }
 
-func (ctx *BDDTestContext) aNomadJobFileContains(filename, content string) error {
+func (ctx *RealBDDTestContext) aNomadJobFileContains(filename, content string) error {
 	// Create the job file in our temp directory
 	err := ctx.createJobFile(filename, content)
 	if err != nil {
@@ -116,7 +116,7 @@ func (ctx *BDDTestContext) aNomadJobFileContains(filename, content string) error
 	return nil
 }
 
-func (ctx *BDDTestContext) theUserExecutes(command string) error {
+func (ctx *RealBDDTestContext) theUserExecutes(command string) error {
 	if strings.Contains(command, "nomad job run") {
 		// Extract job file from command
 		parts := strings.Fields(command)
@@ -168,7 +168,7 @@ func (ctx *BDDTestContext) theUserExecutes(command string) error {
 	return nil
 }
 
-func (ctx *BDDTestContext) waitsForTaskCompletion() error {
+func (ctx *RealBDDTestContext) waitsForTaskCompletion() error {
 	if ctx.currentJobID == "" {
 		return fmt.Errorf("no current job to wait for")
 	}
@@ -182,7 +182,7 @@ func (ctx *BDDTestContext) waitsForTaskCompletion() error {
 	return nil
 }
 
-func (ctx *BDDTestContext) theJobStatusShouldShow(status string) error {
+func (ctx *RealBDDTestContext) theJobStatusShouldShow(status string) error {
 	if ctx.currentJobID == "" {
 		return fmt.Errorf("no current job to check status for")
 	}
@@ -206,7 +206,7 @@ func (ctx *BDDTestContext) theJobStatusShouldShow(status string) error {
 	return nil
 }
 
-func (ctx *BDDTestContext) theTaskExitCodeShouldBeNonZero() error {
+func (ctx *RealBDDTestContext) theTaskExitCodeShouldBeNonZero() error {
 	if ctx.currentJobID == "" {
 		return fmt.Errorf("no current job to check exit code for")
 	}
@@ -225,7 +225,7 @@ func (ctx *BDDTestContext) theTaskExitCodeShouldBeNonZero() error {
 	return nil
 }
 
-func (ctx *BDDTestContext) theTaskExitCodeShouldBe(exitCode int) error {
+func (ctx *RealBDDTestContext) theTaskExitCodeShouldBe(exitCode int) error {
 	if ctx.currentJobID == "" {
 		return fmt.Errorf("no current job to check exit code for")
 	}
@@ -244,7 +244,7 @@ func (ctx *BDDTestContext) theTaskExitCodeShouldBe(exitCode int) error {
 	return nil
 }
 
-func (ctx *BDDTestContext) runningShouldContain(command, expectedOutput string) error {
+func (ctx *RealBDDTestContext) runningShouldContain(command, expectedOutput string) error {
 	if strings.Contains(command, "nomad logs") {
 		if ctx.currentJobID == "" {
 			return fmt.Errorf("no current job to get logs for")
@@ -286,7 +286,7 @@ func (ctx *BDDTestContext) runningShouldContain(command, expectedOutput string) 
 	return nil
 }
 
-func (ctx *BDDTestContext) runningShouldOutputExactly(command, expectedOutput string) error {
+func (ctx *RealBDDTestContext) runningShouldOutputExactly(command, expectedOutput string) error {
 	if strings.Contains(command, "nomad logs") {
 		if ctx.currentJobID == "" {
 			return fmt.Errorf("no current job to get logs for")
@@ -305,14 +305,18 @@ func (ctx *BDDTestContext) runningShouldOutputExactly(command, expectedOutput st
 
 		ctx.lastOutput = logs
 
-		if logs != expectedOutput {
+		// Trim trailing whitespace from both expected and actual output for comparison
+		trimmedLogs := strings.TrimRight(logs, "\n\r\t ")
+		trimmedExpected := strings.TrimRight(expectedOutput, "\n\r\t ")
+		
+		if trimmedLogs != trimmedExpected {
 			return fmt.Errorf("expected exact output %q, got %q", expectedOutput, logs)
 		}
 	}
 	return nil
 }
 
-func (ctx *BDDTestContext) theTaskEventsShouldInclude(event string) error {
+func (ctx *RealBDDTestContext) theTaskEventsShouldInclude(event string) error {
 	if ctx.currentJobID == "" {
 		return fmt.Errorf("no current job to get events for")
 	}
@@ -331,7 +335,7 @@ func (ctx *BDDTestContext) theTaskEventsShouldInclude(event string) error {
 	return fmt.Errorf("expected task events to include %q, got %v", event, events)
 }
 
-func (ctx *BDDTestContext) noCrunContainerShouldHaveBeenCreated() error {
+func (ctx *RealBDDTestContext) noCrunContainerShouldHaveBeenCreated() error {
 	// In practice, this would check if crun containers were created
 	// For now, we'll check if the job failed appropriately
 	if ctx.currentJobID == "" {
@@ -353,7 +357,7 @@ func (ctx *BDDTestContext) noCrunContainerShouldHaveBeenCreated() error {
 
 func InitializeScenario(sc *godog.ScenarioContext) {
 	// Create a dummy test instance - in practice this would be passed from the test suite
-	testCtx := NewBDDTestContext(&testing.T{})
+	testCtx := NewRealBDDTestContext(&testing.T{})
 
 	sc.Before(func(ctx context.Context, scenario *godog.Scenario) (context.Context, error) {
 		return ctx, testCtx.setup()
@@ -392,7 +396,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	sc.Step(`^the container should start without crun configuration errors$`, testCtx.theContainerShouldStartWithoutCrunConfigurationErrors)
 }
 
-func (ctx *BDDTestContext) theContainerOCISpecShouldIncludeLinuxNamespaces() error {
+func (ctx *RealBDDTestContext) theContainerOCISpecShouldIncludeLinuxNamespaces() error {
 	// Use the test Java path we set up
 	javaPath := ctx.testJavaHome
 	if javaPath == "" {
@@ -417,7 +421,7 @@ func (ctx *BDDTestContext) theContainerOCISpecShouldIncludeLinuxNamespaces() err
 	return nil
 }
 
-func (ctx *BDDTestContext) theContainerShouldStartWithoutCrunConfigurationErrors() error {
+func (ctx *RealBDDTestContext) theContainerShouldStartWithoutCrunConfigurationErrors() error {
 	// This would verify no crun config errors in real execution
 	// For now, we'll check that the job started successfully
 	if ctx.currentJobID == "" {

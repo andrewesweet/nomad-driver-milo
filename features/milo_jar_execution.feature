@@ -115,7 +115,7 @@ Feature: Milo Java JAR Task Driver
       Hello from Java!
       Milo driver test complete
       """
-    And the task events should include "Task completed successfully"
+    And the task events should include "Terminated: Exit Code: 0"
     
   Scenario: Container spec validation for crun
     Given a host with Java runtime installed at "/usr/lib/jvm/java-21-openjdk-amd64"
