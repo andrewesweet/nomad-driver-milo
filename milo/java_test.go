@@ -111,16 +111,27 @@ func TestFormatMissingJavaError_GeneratesMessage(t *testing.T) {
 	searchPaths := []string{"/usr/lib/jvm/java-17", "/opt/java"}
 	err := FormatMissingJavaError(searchPaths)
 
-	// Then we should get an error message containing key information
+	// Then we should get a MissingJavaError with simple Error() and detailed Detailed() messages
 	errMsg := err.Error()
-	if !strings.Contains(errMsg, "No Java runtime found on host") {
-		t.Errorf("expected error to contain 'No Java runtime found on host', got %q", errMsg)
+	if errMsg != "No Java runtime found on host" {
+		t.Errorf("expected error to be 'No Java runtime found on host', got %q", errMsg)
 	}
-	if !strings.Contains(errMsg, "Searched locations:") {
-		t.Errorf("expected error to contain 'Searched locations:', got %q", errMsg)
-	}
-	if !strings.Contains(errMsg, "/usr/lib/jvm/java-17") {
-		t.Errorf("expected error to contain searched path, got %q", errMsg)
+	
+	// Check that it's a MissingJavaError and verify detailed message
+	mjErr, ok := err.(*MissingJavaError)
+	if !ok {
+		t.Errorf("expected error to be a *MissingJavaError, got %T", err)
+	} else {
+		detailedMsg := mjErr.Detailed()
+		if !strings.Contains(detailedMsg, "Error: No Java runtime found on host") {
+			t.Errorf("expected detailed message to contain 'Error: No Java runtime found on host', got %q", detailedMsg)
+		}
+		if !strings.Contains(detailedMsg, "Searched locations:") {
+			t.Errorf("expected detailed message to contain 'Searched locations:', got %q", detailedMsg)
+		}
+		if !strings.Contains(detailedMsg, "/usr/lib/jvm/java-17") {
+			t.Errorf("expected detailed message to contain searched path, got %q", detailedMsg)
+		}
 	}
 }
 

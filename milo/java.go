@@ -6,6 +6,40 @@ import (
 	"path/filepath"
 )
 
+// MissingJavaError represents an error when Java runtime is not found
+type MissingJavaError struct {
+	SearchPaths []string
+}
+
+// Error returns the simple BDD-compliant error message
+func (e *MissingJavaError) Error() string {
+	return "No Java runtime found on host"
+}
+
+// Detailed returns the full detailed error message with search paths and instructions
+func (e *MissingJavaError) Detailed() string {
+	msg := "Error: No Java runtime found on host. Please install Java to use Milo driver.\n\n"
+	msg += "Searched locations:\n"
+
+	// Check JAVA_HOME first
+	if javaHome := os.Getenv("JAVA_HOME"); javaHome != "" {
+		msg += fmt.Sprintf("- JAVA_HOME: %s (invalid or not found)\n", javaHome)
+	} else {
+		msg += "- JAVA_HOME environment variable (not set)\n"
+	}
+
+	// List all searched paths
+	for _, path := range e.SearchPaths {
+		msg += fmt.Sprintf("- %s (not found)\n", path)
+	}
+
+	msg += "\nTo fix:\n"
+	msg += "1. Install Java: sudo apt install openjdk-17-jdk\n"
+	msg += "2. Or set JAVA_HOME to existing installation"
+
+	return msg
+}
+
 // ScanJavaInstallationPaths scans common Java installation directories
 func ScanJavaInstallationPaths(searchPaths []string) []string {
 	var javaInstallations []string
@@ -44,28 +78,11 @@ func ValidateJavaExecutable(javaDir string) bool {
 	return err == nil
 }
 
-// FormatMissingJavaError generates a user-friendly error for missing Java
+// FormatMissingJavaError creates a MissingJavaError with the provided search paths
 func FormatMissingJavaError(searchPaths []string) error {
-	msg := "Error: No Java runtime found on host. Please install Java to use Milo driver.\n\n"
-	msg += "Searched locations:\n"
-
-	// Check JAVA_HOME first
-	if javaHome := os.Getenv("JAVA_HOME"); javaHome != "" {
-		msg += fmt.Sprintf("- JAVA_HOME: %s (invalid or not found)\n", javaHome)
-	} else {
-		msg += "- JAVA_HOME environment variable (not set)\n"
+	return &MissingJavaError{
+		SearchPaths: searchPaths,
 	}
-
-	// List all searched paths
-	for _, path := range searchPaths {
-		msg += fmt.Sprintf("- %s (not found)\n", path)
-	}
-
-	msg += "\nTo fix:\n"
-	msg += "1. Install Java: sudo apt install openjdk-17-jdk\n"
-	msg += "2. Or set JAVA_HOME to existing installation"
-
-	return fmt.Errorf("%s", msg)
 }
 
 // DetectJavaRuntime attempts to find a Java runtime on the system

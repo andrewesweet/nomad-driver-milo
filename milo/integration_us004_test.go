@@ -59,9 +59,16 @@ func TestUserStory004_JavaDetectionIntegration(t *testing.T) {
 		// Test Java detection directly with non-existent paths
 		_, err := DetectJavaRuntime(nonExistentPaths)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "No Java runtime found on host")
-		require.Contains(t, err.Error(), "Searched locations:")
-		require.Contains(t, err.Error(), "/nonexistent/java/path")
+		require.Equal(t, "No Java runtime found on host", err.Error())
+		
+		// Check that it's a MissingJavaError and verify detailed message
+		mjErr, ok := err.(*MissingJavaError)
+		require.True(t, ok, "expected error to be a *MissingJavaError")
+		
+		detailedMsg := mjErr.Detailed()
+		require.Contains(t, detailedMsg, "Error: No Java runtime found on host")
+		require.Contains(t, detailedMsg, "Searched locations:")
+		require.Contains(t, detailedMsg, "/nonexistent/java/path")
 	})
 
 	// Test Case 2: Java Runtime Detection Success
@@ -244,10 +251,16 @@ func TestUserStory004_EnhancedErrorMessage(t *testing.T) {
 			err := FormatMissingJavaError(tc.searchPaths)
 			require.Error(t, err)
 
-			// Verify all expected strings are in the error message
-			errMsg := err.Error()
+			// Verify simple error message
+			require.Equal(t, "No Java runtime found on host", err.Error())
+			
+			// Check detailed message
+			mjErr, ok := err.(*MissingJavaError)
+			require.True(t, ok, "expected error to be a *MissingJavaError")
+			
+			detailedMsg := mjErr.Detailed()
 			for _, expected := range tc.expectedInMsg {
-				require.Contains(t, errMsg, expected, "Error message should contain: %s", expected)
+				require.Contains(t, detailedMsg, expected, "Detailed message should contain: %s", expected)
 			}
 		})
 	}

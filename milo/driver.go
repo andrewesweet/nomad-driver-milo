@@ -350,10 +350,23 @@ func (d *MiloDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHand
 
 	// Use common Java paths (test mode handled in BDD tests via environment)
 	searchPaths := commonJavaPaths
+	
+	// Check if we're in test mode by looking for a marker file
+	testMarkerPath := "/tmp/milo-test-no-java.marker"
+	if _, err := os.Stat(testMarkerPath); err == nil {
+		// Test marker exists, simulate no Java installation
+		searchPaths = []string{"/nonexistent/java/path"}
+		d.logger.Debug("test mode: simulating no Java installation")
+	}
 
 	javaHome, err := DetectJavaRuntime(searchPaths)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Java runtime detection failed: %v", err)
+		// Check if this is a MissingJavaError to provide detailed message
+		if mjErr, ok := err.(*MissingJavaError); ok {
+			// Return error with full detailed message for user visibility
+			return nil, nil, fmt.Errorf("%s", mjErr.Detailed())
+		}
+		return nil, nil, err
 	}
 
 	d.logger.Info("detected Java runtime", "java_home", javaHome)

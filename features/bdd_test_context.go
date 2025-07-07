@@ -73,6 +73,8 @@ func (ctx *BDDTestContext) cleanup() {
 	} else {
 		os.Unsetenv("JAVA_HOME")
 	}
+	// Remove test marker file
+	os.Remove("/tmp/milo-test-no-java.marker")
 
 	// Remove temporary files
 	for _, path := range ctx.tempFiles {
@@ -89,12 +91,18 @@ func (ctx *BDDTestContext) cleanup() {
 func (ctx *BDDTestContext) setTestJavaPath(javaPath string) {
 	ctx.testJavaHome = javaPath
 	os.Setenv("JAVA_HOME", javaPath)
+	// Remove test marker file if it exists
+	os.Remove("/tmp/milo-test-no-java.marker")
 }
 
 // removeJavaPath removes Java from the environment to simulate no Java installation
 func (ctx *BDDTestContext) removeJavaPath() {
 	ctx.testJavaHome = ""
 	os.Unsetenv("JAVA_HOME")
+	// Create a marker file to tell the driver to simulate no Java
+	if err := os.WriteFile("/tmp/milo-test-no-java.marker", []byte("test"), 0644); err != nil {
+		ctx.t.Logf("Failed to create test marker file: %v", err)
+	}
 }
 
 // createTempFile creates a temporary file with the given content

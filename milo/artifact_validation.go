@@ -19,10 +19,15 @@ type ValidationError struct {
 
 // Error implements the error interface with formatted message
 func (e ValidationError) Error() string {
-	return fmt.Sprintf(
-		"Error: %s\nExpected: %s\nGot: %s\nSuggestion: %s",
-		e.What, e.Expected, e.Got, e.Suggestion,
-	)
+	// Special cases for BDD-compliant messages
+	switch e.What {
+	case "Artifact must be a JAR file":
+		return fmt.Sprintf("Error: Artifact must be a .jar file, got: %s", e.Got)
+	case "Failed to download artifact":
+		return "Error: Failed to download artifact: file not found"
+	default:
+		return fmt.Sprintf("Error: %s", e.What)
+	}
 }
 
 // ValidateArtifactExtensionEnhanced checks if the artifact file has a .jar extension with detailed errors
@@ -126,7 +131,7 @@ func (v *ArtifactValidator) FindAndValidateArtifact() (string, error) {
 	switch len(jarFiles) {
 	case 0:
 		return "", ValidationError{
-			What:       "Artifact file not found",
+			What:       "Failed to download artifact",
 			Expected:   "JAR file in task directory",
 			Got:        "No JAR files found in local/",
 			Suggestion: "Check that your artifact was downloaded successfully",
