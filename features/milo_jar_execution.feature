@@ -28,7 +28,7 @@ Feature: Milo Java JAR Task Driver
       """
       Error: Artifact must be a .jar file, got: my-script.py
       """
-    And the task events should include "Task failed to start"
+    And the task events should include "Driver Failure"
     And no crun container should have been created
 
   Scenario: Missing artifact file

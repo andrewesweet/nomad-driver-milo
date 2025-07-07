@@ -386,6 +386,7 @@ func (s *LiveNomadServer) GetTaskExitCode(jobID, taskName string) (int, error) {
 	}
 	
 	if taskState, exists := alloc.TaskStates[taskName]; exists {
+		// Check if task is dead
 		if taskState.State == "dead" && len(taskState.Events) > 0 {
 			// Look for the last exit event
 			for i := len(taskState.Events) - 1; i >= 0; i-- {
@@ -394,10 +395,41 @@ func (s *LiveNomadServer) GetTaskExitCode(jobID, taskName string) (int, error) {
 					return event.ExitCode, nil
 				}
 			}
+			
+			// If task is dead but no Terminated event found, check if it failed during setup
+			// Look for events that indicate validation or setup failure
+			for _, event := range taskState.Events {
+				if event.Type == "Task Setup" && event.FailsTask {
+					// Task failed during setup/validation, return -1 as a special exit code
+					return -1, nil
+				}
+				if event.Type == "Driver Failure" {
+					// Driver failed, likely during validation
+					return -1, nil
+				}
+				// Check for validation errors
+				if event.ValidationError != "" {
+					// Task failed validation
+					return -1, nil
+				}
+				// Check for setup errors
+				if event.SetupError != "" {
+					// Task failed during setup
+					return -1, nil
+				}
+			}
+			
+			// Task is dead but no exit code found - treat as failure
+			return -1, nil
+		}
+		
+		// Task exists but is not dead yet
+		if taskState.State == "pending" || taskState.State == "running" {
+			return -1, fmt.Errorf("task %s is still %s", taskName, taskState.State)
 		}
 	}
 	
-	return -1, fmt.Errorf("exit code not found for task %s", taskName)
+	return -1, fmt.Errorf("task state not found for task %s", taskName)
 }
 
 // createConfig creates the Nomad configuration file

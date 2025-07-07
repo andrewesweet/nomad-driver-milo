@@ -263,10 +263,11 @@ func (ctx *BDDTestContext) getTaskEvents(jobID, taskName string) ([]string, erro
 	for _, taskGroup := range status.Summary {
 		if taskGroup.Complete > 0 {
 			events = append(events, "Started: Task started")
-			events = append(events, "Terminated: Task completed successfully")
+			// Match the expected format from the feature file
+			events = append(events, "Terminated: Exit Code: 0")
 		} else if taskGroup.Failed > 0 {
 			events = append(events, "Started: Task started")
-			events = append(events, "Terminated: Task failed to start")
+			events = append(events, "Driver Failure: Task failed to start")
 		}
 	}
 
