@@ -36,7 +36,7 @@ func TestLogStreamer_WritesToFIFO(t *testing.T) {
 			return
 		}
 		defer fifo.Close()
-		io.Copy(&received, fifo)
+		_, _ = io.Copy(&received, fifo)
 	}()
 
 	// Create test data source

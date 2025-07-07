@@ -14,34 +14,34 @@ import (
 // Test that handle properly manages lifecycle
 func TestTaskHandle_Lifecycle(t *testing.T) {
 	logger := hclog.NewNullLogger()
-	
+
 	// Create a simple command that runs for a bit
 	cmd := exec.Command("sleep", "0.1")
 	err := cmd.Start()
 	require.NoError(t, err)
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	h := &taskHandle{
-		logger:       logger,
-		cmd:          cmd,
-		pid:          cmd.Process.Pid,
-		taskConfig:   &drivers.TaskConfig{ID: "test-task"},
-		procState:    drivers.TaskStateRunning,
-		startedAt:    time.Now(),
-		ctx:          ctx,
-		cancelFunc:   cancel,
-		waitCh:       make(chan struct{}),
+		logger:     logger,
+		cmd:        cmd,
+		pid:        cmd.Process.Pid,
+		taskConfig: &drivers.TaskConfig{ID: "test-task"},
+		procState:  drivers.TaskStateRunning,
+		startedAt:  time.Now(),
+		ctx:        ctx,
+		cancelFunc: cancel,
+		waitCh:     make(chan struct{}),
 	}
-	
+
 	// Verify initial state
 	require.True(t, h.IsRunning())
 	status := h.TaskStatus()
 	require.Equal(t, drivers.TaskStateRunning, status.State)
-	
+
 	// Run the handler
 	go h.run()
-	
+
 	// Wait for process to complete
 	select {
 	case <-h.waitCh:
@@ -49,7 +49,7 @@ func TestTaskHandle_Lifecycle(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for process to complete")
 	}
-	
+
 	// Verify final state
 	require.False(t, h.IsRunning())
 	status = h.TaskStatus()
@@ -61,7 +61,7 @@ func TestTaskHandle_Lifecycle(t *testing.T) {
 // Test that cancel properly stops streaming
 func TestTaskHandle_CancelStreaming(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Verify context is not cancelled
 	select {
 	case <-ctx.Done():
@@ -69,10 +69,10 @@ func TestTaskHandle_CancelStreaming(t *testing.T) {
 	default:
 		// Good
 	}
-	
+
 	// Cancel the context
 	cancel()
-	
+
 	// Verify context is cancelled
 	select {
 	case <-ctx.Done():

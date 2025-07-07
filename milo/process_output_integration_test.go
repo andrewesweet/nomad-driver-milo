@@ -20,14 +20,14 @@ func TestLogStreamerIntegration_CapturesStdout(t *testing.T) {
 
 	// Create temporary directory
 	tmpDir := t.TempDir()
-	
+
 	// Create FIFO
 	fifoPath := filepath.Join(tmpDir, "stdout.fifo")
 	require.NoError(exec.Command("mkfifo", fifoPath).Run())
 
 	// Create a simple command that outputs to stdout
 	cmd := exec.Command("echo", "Hello from stdout")
-	
+
 	// Get stdout pipe
 	stdoutPipe, err := cmd.StdoutPipe()
 	require.NoError(err)
@@ -91,14 +91,14 @@ func TestLogStreamerIntegration_CapturesStderr(t *testing.T) {
 
 	// Create temporary directory
 	tmpDir := t.TempDir()
-	
+
 	// Create FIFO
 	fifoPath := filepath.Join(tmpDir, "stderr.fifo")
 	require.NoError(exec.Command("mkfifo", fifoPath).Run())
 
 	// Create a command that outputs to stderr
 	cmd := exec.Command("sh", "-c", "echo 'Error message' >&2")
-	
+
 	// Get stderr pipe
 	stderrPipe, err := cmd.StderrPipe()
 	require.NoError(err)
@@ -162,7 +162,7 @@ func TestLogStreamerIntegration_ConcurrentStreaming(t *testing.T) {
 
 	// Create temporary directory
 	tmpDir := t.TempDir()
-	
+
 	// Create FIFOs
 	stdoutFifo := filepath.Join(tmpDir, "stdout.fifo")
 	stderrFifo := filepath.Join(tmpDir, "stderr.fifo")
@@ -171,7 +171,7 @@ func TestLogStreamerIntegration_ConcurrentStreaming(t *testing.T) {
 
 	// Create a command that outputs to both
 	cmd := exec.Command("sh", "-c", "echo 'stdout line'; echo 'stderr line' >&2")
-	
+
 	// Get pipes
 	stdoutPipe, err := cmd.StdoutPipe()
 	require.NoError(err)

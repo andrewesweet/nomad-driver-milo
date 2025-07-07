@@ -46,7 +46,7 @@ func (ls *LogStreamer) streamToWriter(ctx context.Context) error {
 	// Use io.Copy for efficient streaming
 	// Default buffer size (32KB) is appropriate for most cases
 	_, err := io.Copy(ls.writer, ls.source)
-	
+
 	if err != nil {
 		// Check if it's a broken pipe error
 		if isEPIPE(err) {

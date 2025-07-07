@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad/drivers/shared/executor"
 	"github.com/hashicorp/nomad/plugins/drivers"
 )
@@ -23,13 +22,13 @@ type taskHandle struct {
 	// stateLock syncs access to all fields below
 	stateLock sync.RWMutex
 
-	logger       hclog.Logger
-	cmd          *exec.Cmd           // Direct command execution
-	taskConfig   *drivers.TaskConfig
-	procState    drivers.TaskState
-	startedAt    time.Time
-	completedAt  time.Time
-	exitResult   *drivers.ExitResult
+	logger      hclog.Logger
+	cmd         *exec.Cmd // Direct command execution
+	taskConfig  *drivers.TaskConfig
+	procState   drivers.TaskState
+	startedAt   time.Time
+	completedAt time.Time
+	exitResult  *drivers.ExitResult
 
 	// Process management
 	pid        int
@@ -42,8 +41,7 @@ type taskHandle struct {
 	stderrStream *LogStreamer
 
 	// Legacy fields for compatibility (may be removed later)
-	exec         executor.Executor
-	pluginClient *plugin.Client
+	exec executor.Executor
 }
 
 func (h *taskHandle) TaskStatus() *drivers.TaskStatus {
@@ -78,10 +76,10 @@ func (h *taskHandle) run() {
 
 	// Wait for the command to complete
 	err := h.cmd.Wait()
-	
+
 	// Signal that process has finished
 	close(h.waitCh)
-	
+
 	// Cancel log streaming context
 	if h.cancelFunc != nil {
 		h.cancelFunc()
@@ -102,6 +100,6 @@ func (h *taskHandle) run() {
 		h.procState = drivers.TaskStateExited
 		h.exitResult.ExitCode = 0
 	}
-	
+
 	h.completedAt = time.Now()
 }

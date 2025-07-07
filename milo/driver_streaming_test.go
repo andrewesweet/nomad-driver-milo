@@ -17,10 +17,10 @@ import (
 // TestDriverStreamingSimple tests that the driver captures output with the new streaming approach
 func TestDriverStreamingSimple(t *testing.T) {
 	t.Skip("Requires crun and Java - enable for manual testing")
-	
+
 	require := require.New(t)
 	logger := hclog.NewNullLogger()
-	
+
 	// Create driver
 	d := NewPlugin(logger).(*MiloDriverPlugin)
 	d.config = &Config{}
@@ -28,33 +28,33 @@ func TestDriverStreamingSimple(t *testing.T) {
 		ClientMaxPort: 10000,
 		ClientMinPort: 9000,
 	}
-	
+
 	// Create test structure
 	allocDir := t.TempDir()
 	taskName := "test-streaming"
 	taskDir := filepath.Join(allocDir, taskName)
 	localDir := filepath.Join(taskDir, "local")
 	require.NoError(os.MkdirAll(localDir, 0755))
-	
+
 	// Copy test JAR
 	testJarSrc := filepath.Join("..", "test-artifacts", "hello-world.jar")
 	testJarDst := filepath.Join(localDir, "hello-world.jar")
-	
+
 	// Check if test JAR exists
 	if _, err := os.Stat(testJarSrc); err == nil {
 		data, err := os.ReadFile(testJarSrc)
 		require.NoError(err)
-		require.NoError(os.WriteFile(testJarDst, data, 0644))
+		require.NoError(os.WriteFile(testJarDst, data, 0600))
 	} else {
 		t.Skip("Test JAR not found, skipping")
 	}
-	
+
 	// Create FIFOs
 	stdoutPath := filepath.Join(taskDir, "stdout.fifo")
 	stderrPath := filepath.Join(taskDir, "stderr.fifo")
 	require.NoError(exec.Command("mkfifo", stdoutPath).Run())
 	require.NoError(exec.Command("mkfifo", stderrPath).Run())
-	
+
 	// Prepare task config
 	taskCfg := &drivers.TaskConfig{
 		ID:         "test-task-streaming",
@@ -63,17 +63,17 @@ func TestDriverStreamingSimple(t *testing.T) {
 		StdoutPath: stdoutPath,
 		StderrPath: stderrPath,
 	}
-	
+
 	// Encode driver config
 	driverConfig := map[string]interface{}{
 		"dummy": "",
 	}
 	require.NoError(taskCfg.EncodeConcreteDriverConfig(&driverConfig))
-	
+
 	// Channel to capture output
 	outputCh := make(chan string, 1)
 	errCh := make(chan error, 1)
-	
+
 	// Start reader before starting task
 	go func() {
 		fifo, err := os.Open(stdoutPath)
@@ -82,7 +82,7 @@ func TestDriverStreamingSimple(t *testing.T) {
 			return
 		}
 		defer fifo.Close()
-		
+
 		data, err := io.ReadAll(fifo)
 		if err != nil {
 			errCh <- err
@@ -90,12 +90,12 @@ func TestDriverStreamingSimple(t *testing.T) {
 		}
 		outputCh <- string(data)
 	}()
-	
+
 	// Start the task
 	handle, _, err := d.StartTask(taskCfg)
 	require.NoError(err)
 	require.NotNil(handle)
-	
+
 	// Wait for output
 	select {
 	case output := <-outputCh:
@@ -106,11 +106,11 @@ func TestDriverStreamingSimple(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for output")
 	}
-	
+
 	// Clean up
 	err = d.StopTask(taskCfg.ID, 1*time.Second, "SIGTERM")
 	require.NoError(err)
-	
+
 	err = d.DestroyTask(taskCfg.ID, false)
 	require.NoError(err)
 }
