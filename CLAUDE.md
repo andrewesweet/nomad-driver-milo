@@ -25,6 +25,8 @@ gemini -d -p "Debug this issue"
 - Debugging intricate issues
 - Architecture reviews
 - Long-form analysis requiring large context
+- Reviewing technical spike findings
+- Epic and user story planning
 
 **Gemini capabilities:**
 - 1 million token context window (excellent for large codebases)
@@ -101,11 +103,73 @@ Originally forked from HashiCorp's skeleton driver template at github.com/hashic
 
 The Milo driver provides:
 - **Java JAR Execution**: Runs Java JAR files inside OCI containers via crun
-- **Automatic Java Detection**: Discovers Java installations on the host system
+- **Automatic Java Detection**: Discovers Java installations on the host system with JAVA_HOME priority
 - **Container Isolation**: Uses Linux namespaces (PID, IPC, UTS, mount) for security
 - **Host Java Runtime Mounting**: Mounts system Java into containers to avoid bundling
 - **Artifact Support**: Downloads and validates JAR files via Nomad's artifact stanza
+- **Enhanced Artifact Validation**: Comprehensive JAR validation with user-friendly error messages
+- **Log Streaming**: Real-time stdout/stderr streaming to Nomad via FIFOs
+- **Exit Code Propagation**: Proper propagation of Java process exit codes to Nomad
 - **Standard Nomad Integration**: Works with Nomad CLI, UI, and API
+
+## Development Methodology
+
+### Epic and User Story Organization
+
+The project follows an Agile approach with epics and user stories:
+
+**Epic Structure** (`docs/epics/XXX-epic-name/`):
+- `README.md` - Epic overview with goals and user stories list
+- `001-user-story-name.md` - Individual user story files
+- `XXX-implementation-plan.md` - Detailed implementation plans
+- `XXX-spike-plan.md` - Technical spike plans
+- `spikes/` - Directory containing spike scripts and findings
+- `XXX-completion-summary.md` - Epic completion documentation
+
+**User Story Format**:
+- User story statement ("As a..., I want..., so that...")
+- Acceptance criteria checklist
+- Gherkin scenarios for BDD testing
+- Technical requirements
+- Definition of Done
+
+### Technical Spikes
+
+We use technical spikes to reduce uncertainty and validate approaches:
+
+**Purpose of Spikes**:
+- Explore unknown technical territory
+- Validate assumptions before implementation
+- Compare different implementation approaches
+- Understand external system behaviors (e.g., Nomad, crun)
+- Reduce risk in user story implementation
+
+**Spike Process**:
+1. Identify uncertainty in user story
+2. Define spike goals and questions
+3. Time-box the investigation (usually 1-4 hours)
+4. Document findings in spike scripts/documents
+5. Make implementation decisions based on findings
+
+**Spike Artifacts** (`docs/epics/XXX/spikes/`):
+- Shell scripts testing specific behaviors
+- Go programs exploring APIs
+- Markdown documents with findings
+- Decision rationale based on results
+
+### Test-Driven Development (TDD/ATDD)
+
+The project strictly follows TDD/ATDD methodology:
+
+1. **Write failing tests first** - All features start with tests
+2. **BDD scenarios** - Gherkin scenarios guide acceptance testing
+3. **Unit test coverage** - Comprehensive unit tests for all components
+4. **Integration testing** - End-to-end tests verify complete workflows
+5. **Test organization**:
+   - Unit tests: `*_test.go` alongside implementation
+   - BDD tests: `features/` directory with Gherkin files
+   - Integration tests: `e2e/` directory
+   - Test artifacts: `test-artifacts/` directory
 
 ## Build and Development Commands
 
@@ -121,8 +185,10 @@ The Milo driver provides:
 
 ### Testing
 - `make test` - Run unit tests
+- `make test-unit` - Run unit tests (alias)
 - `make test-acceptance` - Run acceptance tests
 - `make test-live-e2e` - Run end-to-end tests (requires running Nomad)
+- `make test-all` - Run all test suites
 - `make run` - Build and start Nomad dev server with the plugin
 
 ### Development Environment
@@ -182,36 +248,58 @@ job "milo-hello-world" {
 - Plugin registration and capabilities
 - Fingerprinting for Java runtime detection
 - Task lifecycle management (Start, Stop, Destroy, Recover)
+- Direct process execution using exec.Command for better control
 
 **milo/handle.go**: Task handle management:
 - `taskHandle` struct: Stores runtime state for tasks
 - Container process monitoring
 - Status reporting to Nomad
+- Exit code capture and propagation
+- Log streaming lifecycle management
 
 **milo/state.go**: Thread-safe task storage with concurrent access protection
 
 **milo/java.go**: Java runtime detection:
 - Searches common Java installation paths
+- JAVA_HOME environment variable priority
 - Validates Java executable availability
 - Reports Java version during fingerprinting
+- Enhanced error messages showing searched locations
 
 **milo/container.go**: OCI container specification:
 - Creates container specs for crun
 - Configures namespace isolation
 - Sets up filesystem mounts (Java runtime, task directory, system libraries)
+- Configures JAVA_HOME and PATH environment variables
 
-**milo/artifact.go**: JAR file handling:
+**milo/artifact.go** & **milo/artifact_validation.go**: JAR file handling:
 - Discovers JAR files in task directory
-- Validates artifact presence
-- Prepares JAR paths for execution
+- Comprehensive validation with structured errors
+- ZIP structure integrity checking
+- Case-insensitive extension matching
+- User-friendly error messages (What/Expected/Got/Suggestion format)
+
+**milo/logging.go**: Log streaming infrastructure:
+- LogStreamer for FIFO-based log forwarding
+- Handles EPIPE errors gracefully
+- Efficient streaming with io.Copy
+- Context-aware cancellation
 
 ### Key Implementation Details
 
-- Uses crun as the OCI runtime for container execution
+- Uses crun as the OCI runtime for container execution (lightweight alternative to runc)
 - Mounts host Java runtime to avoid bundling Java in containers
 - Implements standard Nomad driver plugin interface
 - Thread-safe task management with proper locking
 - Graceful shutdown with context cancellation
+- Direct process execution instead of executor for better streaming control
+- FIFO-based log streaming to Nomad's logging subsystem
+
+### Known Limitations
+
+- Task recovery not supported due to direct exec.Command usage (tasks marked as lost on driver restart)
+- Single JAR execution per task (no multi-JAR support)
+- Requires Java pre-installed on the host
 
 ### Container Isolation
 
@@ -220,13 +308,14 @@ Each task runs in an isolated container with:
 - **Filesystem**: Read-only mounts except task directory
 - **Java Runtime**: Mounted from host at `/usr/lib/jvm/java`
 - **Task Directory**: Mounted at `/app` with read-write access
+- **Environment**: JAVA_HOME and PATH configured for Java execution
 
 ## Module Information
 
 - Module path: `github.com/andrewesweet/nomad-driver-milo`
 - Nomad SDK: v1.10.0
 - Go version: 1.24 (with toolchain 1.24.2)
-- Uses replace directive for go-metrics compatibility
+- Uses replace directive for go-metrics compatibility (required for Nomad SDK)
 
 ## Testing
 
@@ -234,8 +323,19 @@ Each task runs in an isolated container with:
 Located in `milo/*_test.go`, covering:
 - Driver lifecycle
 - Task management
-- Java detection
+- Java detection with enhanced error messages
 - Container specification generation
+- Artifact validation
+- Log streaming
+- Exit code propagation
+
+### BDD/Acceptance Tests
+Located in `features/`, using Gherkin scenarios:
+- Invalid artifact extension
+- Missing artifact file
+- Missing Java runtime
+- Successful JAR execution
+- Container spec validation
 
 ### End-to-End Tests
 Located in `e2e/live/`, testing:
@@ -243,17 +343,26 @@ Located in `e2e/live/`, testing:
 - JAR artifact handling
 - Container isolation
 - Resource limits
+- Log streaming integration
+- Exit code propagation
 
 ### Test Artifacts
-- `test-artifacts/hello-world.jar`: Simple test JAR for e2e testing
+- `test-artifacts/hello-world.jar`: Simple test JAR used by E2E and BDD tests
 - Example job files in root directory for manual testing
+
+## CI/CD
+
+- GitHub Actions workflow (`.github/workflows/build.yml`) runs on push and PR
+- Automated testing includes unit, integration, and linting
+- Security scanning via gosec
+- Supports multiple Go versions and platforms
 
 ## Additional Resources
 
 - See CONTRIBUTING.md for detailed development workflow
 - GitHub Actions workflow in .github/ for CI/CD setup
 - Linting configuration in .golangci.yml with security scanning
-- Spike documents in docs/ for design decisions
+- Epic and spike documents in docs/ for design decisions and history
 
 ## Important Instruction Reminders
 

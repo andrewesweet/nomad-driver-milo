@@ -80,7 +80,6 @@ job "%s" {
 	}
 	
 	foundLines := make(map[string]int)
-	startTime := time.Now()
 	lastProcessingTime := time.Now()
 	
 	// Read logs for up to 10 seconds
